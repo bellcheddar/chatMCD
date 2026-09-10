@@ -369,6 +369,26 @@ def main() -> int:
             "})()"))
         tab.shot(out / "app-actions-visible.png")
 
+        # --- the status light ------------------------------------------------
+        # It reports whether the model is answering. The failure that matters is
+        # a green dot on a broken model, so this checks it reached a REAL state
+        # rather than merely existing.
+        print("\nstatus light")
+        check("the status dot is present", tab.js("!!document.getElementById('status-dot')"))
+        state = tab.js("document.getElementById('status-dot').dataset.health")
+        check("it resolved to a real state, not 'unknown'",
+              state in ("ok", "degraded", "down"), f"state={state!r}")
+        check("a conversation that worked leaves it green", state == "ok",
+              f"state={state!r} after a successful answer")
+        check("it is painted, not just labelled", tab.js(
+            "getComputedStyle(document.getElementById('status-dot')).backgroundColor")
+            not in ("", "rgba(0, 0, 0, 0)"))
+        check("it explains itself to a screen reader", bool(tab.js(
+            "document.getElementById('status-dot').getAttribute('aria-label')")))
+        check("the green state animates", tab.js(
+            "getComputedStyle(document.getElementById('status-dot')).animationName")
+            not in ("", "none"))
+
         # --- theme switch --------------------------------------------------
         print("\ntheme switch")
         tab.click("[data-theme-set='dark']")

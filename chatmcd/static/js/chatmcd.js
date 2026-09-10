@@ -344,6 +344,63 @@
     if (stick) scroll(true);
   }
 
+  /* --------------------------------------------------------- status light */
+
+  /* The dot beside Marc's name reports whether the model is actually
+     answering. It polls /api/health, which is deliberately cheap on the server
+     (see hf_client.health): no GPU is touched, so an open tab costs nothing.
+
+     It also updates the moment a conversation succeeds or fails, because the
+     visitor has just generated better evidence than any poll: waiting 45
+     seconds to turn the light red after they watched an answer fail would be
+     the one moment the indicator is useless. */
+
+  const statusDot = $('#status-dot');
+  const STATUS_TEXT = {
+    ok: 'chatMCD is live',
+    degraded: 'chatMCD is slow or waking up',
+    down: 'chatMCD is not responding',
+    unknown: 'Checking whether chatMCD is live',
+  };
+
+  function setHealth(state, detail) {
+    if (!statusDot) return;
+    const known = STATUS_TEXT[state] ? state : 'unknown';
+    statusDot.dataset.health = known;
+    const label = detail ? `${STATUS_TEXT[known]} — ${detail}` : STATUS_TEXT[known];
+    statusDot.setAttribute('aria-label', label);
+    statusDot.setAttribute('title', label);
+  }
+
+  let healthTimer = null;
+  async function checkHealth() {
+    try {
+      const r = await fetch('/api/health', { cache: 'no-store' });
+      if (!r.ok) throw new Error(String(r.status));
+      const d = await r.json();
+      setHealth(d.status || (d.ok ? 'ok' : 'down'), d.detail || '');
+    } catch (e) {
+      // The page itself is unreachable, which the visitor cannot fix but
+      // should be able to see.
+      setHealth('down', 'The site cannot reach its own server.');
+    }
+  }
+
+  if (statusDot) {
+    checkHealth();
+    // Only while the tab is visible: a background tab polling all day is
+    // wasted work on both ends.
+    const schedule = () => {
+      clearInterval(healthTimer);
+      if (!document.hidden) healthTimer = setInterval(checkHealth, 45000);
+    };
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) checkHealth();
+      schedule();
+    });
+    schedule();
+  }
+
   /* ------------------------------------------------------------------ send */
 
   function setBusy(busy) {
@@ -414,6 +471,8 @@
           if (event === 'status') {
             if (!statusEl) statusEl = addStatus(payload.detail || 'Warming up…');
             else statusEl.textContent = payload.detail || 'Warming up…';
+            // Queued or waking: working, but not well. Amber.
+            setHealth('degraded', payload.detail || '');
           } else if (event === 'token') {
             if (statusEl) { statusEl.remove(); statusEl = null; }
             if (!target) { typing.remove(); target = addMessage('assistant', ''); }
@@ -432,9 +491,13 @@
         target = addMessage('assistant',
           'I did not get an answer back that time. Try again, or email ' +
           'marc@marcdeller.com if it keeps happening.');
+        // The visitor just watched it fail. Do not make them wait for a poll.
+        setHealth('down', 'The last answer did not come back.');
+        setTimeout(checkHealth, 1500);
       } else {
         history.push({ role: 'assistant', content: answer });
         addActions(target.el, question, answer);
+        setHealth('ok', 'Answering normally.');
       }
     } catch (err) {
       if (statusEl) statusEl.remove();

@@ -35,6 +35,11 @@ class ChatChunk:
 
 
 class SpaceClient:
+    # How long a recorded outcome still describes the present.
+    OK_TTL = 900.0        # a successful answer means healthy for 15 minutes
+    FAIL_TTL = 600.0      # a failure means unhealthy for 10
+    PROBE_TTL = 60.0      # and a handshake probe is cached for one
+
     def __init__(self, space_id: str, token: str | None, timeout: float = 180.0):
         self.space_id = space_id
         self.token = token
@@ -42,6 +47,16 @@ class SpaceClient:
         self._client = None
         self._lock = threading.Lock()
         self._warm_at = 0.0
+        # What actually happened, last time anything happened. The health check
+        # reads these rather than calling the Space, because a status dot that
+        # polls every visitor's browser straight through to a GPU would spend
+        # the quota it exists to report on.
+        self._ok_at = 0.0
+        self._fail_at = 0.0
+        self._slow_at = 0.0        # queued or warming: working, but not well
+        self._detail = ""
+        self._probe_at = 0.0
+        self._probe_ok = None
 
     # -- connection ---------------------------------------------------------
 
@@ -75,14 +90,55 @@ class SpaceClient:
         return time.time() - self._warm_at < 900
 
     def ping(self) -> bool:
-        """Keep-warm probe. Cheap: just re-establishes the config handshake."""
+        """Keep-warm probe. Cheap: just re-establishes the config handshake.
+
+        No GPU is involved, so this is also what the health check falls back on
+        when nobody has asked a question recently.
+        """
         try:
             self.client(force=True)
             self._warm_at = time.time()
+            self._probe_at, self._probe_ok = time.time(), True
             return True
         except Exception as e:  # a sleeping Space is the normal case here
             log.info("keep-warm ping failed: %s", e)
+            self._probe_at, self._probe_ok = time.time(), False
+            self._detail = str(e)[:120]
             return False
+
+    def health(self) -> dict:
+        """Green, amber or red, from what has actually happened.
+
+        green  a real answer came back recently, or the handshake works
+        amber  it is answering but badly: queued behind the GPU, waking from
+               cold, or the last probe is stale and nothing has been asked
+        red    the last thing that happened was a failure, or the Space cannot
+               be reached at all
+        """
+        now = time.time()
+        if now - self._fail_at < self.FAIL_TTL:
+            return {"state": "down", "detail": self._detail or
+                    "The model is not responding.", "warm": self.warm}
+        if now - self._ok_at < self.OK_TTL:
+            if now - self._slow_at < self.FAIL_TTL:
+                return {"state": "degraded",
+                        "detail": self._detail or "Busy: answers may be slow.",
+                        "warm": self.warm}
+            return {"state": "ok", "detail": "Answering normally.", "warm": self.warm}
+
+        # Nothing recent to go on, so check reachability. Cached, because every
+        # open tab polls this.
+        if now - self._probe_at > self.PROBE_TTL:
+            self.ping()
+        if self._probe_ok is False:
+            return {"state": "down", "detail": self._detail or
+                    "The model cannot be reached.", "warm": False}
+        if self._probe_ok is None:
+            return {"state": "degraded", "detail": "Waking up.", "warm": False}
+        return {"state": "ok" if self.warm else "degraded",
+                "detail": "Ready." if self.warm
+                          else "Idle: the first answer may take a moment.",
+                "warm": self.warm}
 
     # -- generation ---------------------------------------------------------
 
@@ -106,6 +162,7 @@ class SpaceClient:
         try:
             client = self.client()
         except Exception as e:
+            self._slow_at, self._detail = time.time(), str(e)[:120]
             yield self._classify(e)
             # One retry after a cold start: the first call is what wakes the Space.
             time.sleep(3)
@@ -139,6 +196,7 @@ class SpaceClient:
                 if delta:
                     yield ChatChunk("token", delta)
         except Exception as e:
+            self._fail_at, self._detail = time.time(), str(e)[:120]
             yield self._classify(e)
             return
 
@@ -161,12 +219,15 @@ class SpaceClient:
             # which names the token as the fix -- goes to the log above, because
             # a public page about Marc should not be printing this server's
             # configuration advice to whoever happens to be reading.
+            self._fail_at = time.time()
+            self._detail = "Out of GPU time for the moment."
             yield ChatChunk("error", "error",
                             "chatMCD has run out of GPU time for the moment. "
                             "Please try again shortly.")
             return
 
-        self._warm_at = time.time()
+        self._warm_at = self._ok_at = time.time()
+        self._fail_at = 0.0
         yield ChatChunk("done", "")
 
     @staticmethod
@@ -224,6 +285,9 @@ class MockClient:
 
     def ping(self) -> bool:
         return True
+
+    def health(self) -> dict:
+        return {"state": "ok", "detail": "Mock: no model is running.", "warm": True}
 
     def stream(self, message: str, history: list[dict], **_) -> Iterator[ChatChunk]:
         low = message.lower()

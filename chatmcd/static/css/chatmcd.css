@@ -181,11 +181,45 @@ body.is-app .shell {
 .hdr-name a { color: inherit; text-decoration: none; }
 .hdr-name a:hover { color: var(--acc); }
 
+/* The dot is a live status light: green answering, amber slow or waking, red
+   not responding. It grows and pulses only while healthy, because a thing that
+   pulses when it is broken reads as "working" to anyone not looking closely. */
 .logo-dot {
   width: 9px; height: 9px; border-radius: 50%;
-  background: var(--acc2);
+  background: var(--ink-3);
   flex: none;
+  box-shadow: 0 0 0 3px transparent;
+  transition: background .3s, box-shadow .3s;
+}
+.logo-dot[data-health="ok"] {
+  background: #12A150;
+  box-shadow: 0 0 0 3px rgba(18, 161, 80, .18);
+  animation: dot-live 2.4s ease-in-out infinite;
+}
+.logo-dot[data-health="degraded"] {
+  background: var(--acc2);
   box-shadow: 0 0 0 3px var(--acc2-soft);
+  animation: dot-slow 1.6s ease-in-out infinite;
+}
+.logo-dot[data-health="down"] {
+  background: #C4344B;
+  box-shadow: 0 0 0 3px rgba(196, 52, 75, .18);
+}
+.logo-dot[data-health="unknown"] { background: var(--ink-3); }
+
+@keyframes dot-live {
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 0 3px rgba(18, 161, 80, .18); }
+  50%      { transform: scale(1.28); box-shadow: 0 0 0 6px rgba(18, 161, 80, .05); }
+}
+@keyframes dot-slow {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .45; }
+}
+
+/* A pulsing dot next to a name is decoration, not information, for anyone who
+   has asked the system to stop moving things. The colour still carries it. */
+@media (prefers-reduced-motion: reduce) {
+  .logo-dot { animation: none !important; }
 }
 
 .hdr-role {

@@ -13,6 +13,7 @@ from a different IP, so every check short of reading the raw SSE said healthy.
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -85,3 +86,84 @@ def test_untokened_client_names_the_quota_in_the_status():
 def test_tokened_client_gives_the_generic_queue_message():
     status = [c for c in run(client_yielding([], token="hf_x")) if c.kind == "status"][0]
     assert "quota for this server" not in status.detail
+
+
+# --------------------------------------------------------------- the status light
+# The dot beside Marc's name reports these. The failure that matters is a green
+# dot on a broken model, so each state is pinned rather than inferred.
+
+def fresh(**kw):
+    c = SpaceClient("Dellboy/chatmcd-api", None)
+    for k, v in kw.items():
+        setattr(c, k, v)
+    return c
+
+
+def test_a_recent_answer_is_green():
+    c = fresh(_probe_at=time.time(), _probe_ok=True,
+              _warm_at=time.time(), _ok_at=time.time())
+    assert c.health()["state"] == "ok"
+
+
+def test_a_recent_failure_is_red_even_if_it_answered_before():
+    """Red must win: an answer from ten minutes ago does not mean it works now."""
+    now = time.time()
+    c = fresh(_probe_at=now, _probe_ok=True, _ok_at=now - 60, _fail_at=now)
+    assert c.health()["state"] == "down"
+
+
+def test_queued_or_warming_is_amber_not_green():
+    now = time.time()
+    c = fresh(_probe_at=now, _probe_ok=True, _warm_at=now, _ok_at=now, _slow_at=now)
+    assert c.health()["state"] == "degraded"
+
+
+def test_an_unreachable_space_is_red():
+    c = fresh(_probe_at=time.time(), _probe_ok=False)
+    assert c.health()["state"] == "down"
+
+
+def test_reachable_but_cold_is_amber():
+    """It will answer, but the first one will be slow: that is not 'live'."""
+    c = fresh(_probe_at=time.time(), _probe_ok=True)
+    assert c.health()["state"] == "degraded"
+
+
+def test_a_stale_failure_no_longer_holds_it_red():
+    c = fresh(_probe_at=time.time(), _probe_ok=True,
+              _fail_at=time.time() - SpaceClient.FAIL_TTL - 1)
+    assert c.health()["state"] != "down"
+
+
+def test_health_never_calls_the_gpu():
+    """Every open tab polls this. It must answer from what it already knows."""
+    c = fresh(_probe_at=time.time(), _probe_ok=True, _warm_at=time.time(),
+              _ok_at=time.time())
+    c.client = lambda *a, **k: (_ for _ in ()).throw(AssertionError("connected"))
+    c._connect = c.client
+    assert c.health()["state"] == "ok"
+
+
+def test_every_state_carries_a_human_explanation():
+    for kw in ({"_probe_ok": True, "_ok_at": time.time(), "_warm_at": time.time()},
+               {"_probe_ok": True},
+               {"_probe_ok": False},
+               {"_probe_ok": True, "_fail_at": time.time()}):
+        h = fresh(_probe_at=time.time(), **kw).health()
+        assert h["detail"], h
+        assert h["state"] in {"ok", "degraded", "down"}
+
+
+def test_a_successful_stream_clears_a_previous_failure():
+    c = client_yielding(["Elora ", "Elora Therapeutics"])
+    c._fail_at = time.time()
+    list(c.stream("q", [], temperature=0.7, top_p=0.9,
+                  repetition_penalty=1.05, max_new_tokens=64))
+    assert c._fail_at == 0.0 and c._ok_at > 0
+
+
+def test_an_empty_stream_records_a_failure():
+    c = client_yielding([])
+    list(c.stream("q", [], temperature=0.7, top_p=0.9,
+                  repetition_penalty=1.05, max_new_tokens=64))
+    assert c._fail_at > 0, "an empty answer must show red, not green"

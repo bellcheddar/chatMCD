@@ -294,11 +294,17 @@ def _register_routes(app: Flask) -> None:
 
     @app.get("/api/health")
     def health():
+        # The status dot in the header reads this. It is deliberately cheap: the
+        # client answers from what it last observed and falls back to a cached
+        # handshake, so an open tab polling every 45 seconds never touches a GPU.
+        h = space.health()
         return jsonify({
-            "ok": True,
+            "ok": h["state"] != "down",
+            "status": h["state"],          # ok | degraded | down
+            "detail": h["detail"],
             "version": app.config["VERSION"],
             "space": app.config["HF_SPACE_ID"],
-            "warm": space.warm,
+            "warm": h["warm"],
             # No "rag" field. It used to report this process's own RAG_ENABLED,
             # which nothing sets here, so health said retrieval was off while
             # retrieval was the entire architecture. The Flask app cannot see
