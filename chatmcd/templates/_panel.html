@@ -13,6 +13,10 @@
 </main>
 
 <div class="composer">
+  {# Shown only when the model cannot answer, so a visitor is told before they
+     type rather than after they wait. Populated by the status poller. #}
+  <p class="outage" id="outage" hidden role="status"></p>
+
   <div class="chips" id="chips" role="group" aria-label="Suggested questions">
     {% for p in presets %}
     <button class="chip" type="button" data-prompt="{{ p.prompt }}">{{ p.label }}</button>

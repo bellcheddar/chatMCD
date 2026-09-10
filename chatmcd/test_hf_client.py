@@ -124,13 +124,38 @@ def test_an_unreachable_space_is_red():
 
 
 def test_reachable_but_cold_is_amber():
-    """It will answer, but the first one will be slow: that is not 'live'."""
-    c = fresh(_probe_at=time.time(), _probe_ok=True)
+    """It will answer, but the first one will be slow: that is not 'live'.
+
+    _recovery_at is set so the unknown-state probe below does not fire: this
+    test is about a client that has already seen generation work.
+    """
+    c = fresh(_probe_at=time.time(), _probe_ok=True, _ok_at=time.time() - 100000,
+              _recovery_at=time.time())
     assert c.health()["state"] == "degraded"
 
 
+def test_a_handshake_alone_never_reports_green():
+    """A Space with no GPU allowance answers the handshake perfectly and then
+    returns nothing to every question, so 'reachable' must not mean 'working'
+    until a generation has actually been seen to succeed."""
+    c = fresh(_probe_at=time.time(), _probe_ok=True)   # never generated anything
+    probed = []
+    c._recovery_probe = lambda: (probed.append(1), False)[1]
+    h = c.health()
+    assert probed, "reported a state without checking whether it can generate"
+    assert h["state"] == "down" and h["reason"] == "quota"
+
+
+def test_a_successful_unknown_state_probe_reports_green():
+    c = fresh(_probe_at=time.time(), _probe_ok=True)
+    c._recovery_probe = lambda: (setattr(c, "_ok_at", time.time()), True)[1]
+    assert c.health()["state"] == "ok"
+
+
 def test_a_stale_failure_no_longer_holds_it_red():
-    c = fresh(_probe_at=time.time(), _probe_ok=True,
+    """An ordinary error does decay. Only an exhausted allowance is sticky."""
+    c = fresh(_probe_at=time.time(), _probe_ok=True, _recovery_at=time.time(),
+              _ok_at=time.time(), _warm_at=time.time(),
               _fail_at=time.time() - SpaceClient.FAIL_TTL - 1)
     assert c.health()["state"] != "down"
 
@@ -167,3 +192,94 @@ def test_an_empty_stream_records_a_failure():
     list(c.stream("q", [], temperature=0.7, top_p=0.9,
                   repetition_penalty=1.05, max_new_tokens=64))
     assert c._fail_at > 0, "an empty answer must show red, not green"
+
+
+# ------------------------------------------------------- the ZeroGPU allowance
+# Running out of credits is the one outage with a known cause and a known end,
+# and it must not decay like an ordinary error: letting it lapse after ten
+# minutes put the light back to amber on a site that could not answer at all.
+
+def with_state(tmp, **kw):
+    c = SpaceClient("Dellboy/chatmcd-api", None,
+                    state_path=str(tmp / "space-state.json"))
+    for k, v in kw.items():
+        setattr(c, k, v)
+    return c
+
+
+def test_an_empty_completion_marks_the_credits_exhausted():
+    c = client_yielding([])
+    list(c.stream("q", [], temperature=0.7, top_p=0.9,
+                  repetition_penalty=1.05, max_new_tokens=64))
+    assert c.out_of_credits
+
+
+def test_being_out_of_credits_is_red_with_its_own_reason(tmp_path):
+    c = with_state(tmp_path, _probe_at=time.time(), _probe_ok=True,
+                   _warm_at=time.time(), _ok_at=time.time())
+    c.mark_quota_exhausted()
+    c._recovery_at = time.time()          # do not probe during the test
+    h = c.health()
+    assert h["state"] == "down" and h["reason"] == "quota"
+    assert "credit" in h["detail"].lower()
+
+
+def test_it_does_not_decay_back_to_amber(tmp_path):
+    """The bug this exists to prevent: FAIL_TTL let it lapse after ten minutes."""
+    c = with_state(tmp_path, _probe_at=time.time(), _probe_ok=True,
+                   _warm_at=time.time(), _ok_at=time.time())
+    c.mark_quota_exhausted()
+    c._quota_at = time.time() - 86400     # a whole day ago
+    c._recovery_at = time.time()
+    assert c.health()["state"] == "down"
+
+
+def test_it_survives_a_restart(tmp_path):
+    c = with_state(tmp_path)
+    c.mark_quota_exhausted()
+    fresh_client = with_state(tmp_path, _probe_at=time.time(), _probe_ok=True,
+                              _warm_at=time.time())
+    fresh_client._recovery_at = time.time()
+    assert fresh_client.out_of_credits
+    assert fresh_client.health()["reason"] == "quota"
+
+
+def test_a_real_answer_clears_it(tmp_path):
+    c = with_state(tmp_path)
+    c.mark_quota_exhausted()
+    c._client = type("C", (), {"submit": lambda self, *a, **k: FakeJob(["hello"])})()
+    list(c.stream("q", [], temperature=0.7, top_p=0.9,
+                  repetition_penalty=1.05, max_new_tokens=64))
+    assert not c.out_of_credits
+    assert with_state(tmp_path).out_of_credits is False, "the file still says out"
+
+
+def test_the_recovery_probe_is_rate_limited(tmp_path):
+    """It costs a real (tiny) generation, so it must not run on every poll."""
+    c = with_state(tmp_path, _probe_at=time.time(), _probe_ok=True)
+    c.mark_quota_exhausted()
+    calls = []
+    c._recovery_probe = lambda: (calls.append(1), False)[1]
+    c._recovery_at = time.time()
+    for _ in range(20):
+        c.health()
+    assert calls == [], "probed while inside the rate-limit window"
+    c._recovery_at = time.time() - c.RECOVERY_TTL - 1
+    c.health()
+    assert len(calls) == 1
+
+
+def test_a_corrupt_state_file_does_not_stop_the_app(tmp_path):
+    (tmp_path / "space-state.json").write_text("{ not json")
+    c = with_state(tmp_path, _probe_at=time.time(), _probe_ok=True,
+                   _warm_at=time.time(), _ok_at=time.time())
+    assert c.health()["state"] == "ok"
+
+
+def test_every_health_reply_carries_a_reason_field(tmp_path):
+    for kw in ({"_probe_ok": True, "_ok_at": time.time(), "_warm_at": time.time()},
+               {"_probe_ok": True},
+               {"_probe_ok": False},
+               {"_probe_ok": True, "_fail_at": time.time()}):
+        c = with_state(tmp_path, _probe_at=time.time(), **kw)
+        assert "reason" in c.health(), c.health()

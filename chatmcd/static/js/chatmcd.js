@@ -363,13 +363,41 @@
     unknown: 'Checking whether chatMCD is live',
   };
 
-  function setHealth(state, detail) {
-    if (!statusDot) return;
+  const outageEl = $('#outage');
+
+  function setHealth(state, detail, reason) {
     const known = STATUS_TEXT[state] ? state : 'unknown';
-    statusDot.dataset.health = known;
-    const label = detail ? `${STATUS_TEXT[known]} — ${detail}` : STATUS_TEXT[known];
-    statusDot.setAttribute('aria-label', label);
-    statusDot.setAttribute('title', label);
+    if (statusDot) {
+      statusDot.dataset.health = known;
+      const label = detail ? `${STATUS_TEXT[known]} — ${detail}` : STATUS_TEXT[known];
+      statusDot.setAttribute('aria-label', label);
+      statusDot.setAttribute('title', label);
+    }
+    if (!outageEl) return;
+
+    // Say it on the page, not only in a tooltip nobody hovers over. Out of
+    // credits is its own message because it is the one outage with a known
+    // cause and a known end, and saying so is more use than "unavailable".
+    if (known === 'down') {
+      outageEl.classList.remove('is-degraded');
+      outageEl.innerHTML = reason === 'quota'
+        ? '<b>chatMCD is out of GPU time.</b> It runs on a free GPU allowance '
+          + 'that refills on a schedule, so it cannot answer until then. '
+          + 'Meanwhile <a href="https://marcdeller.com" target="_blank" '
+          + 'rel="noopener noreferrer">marcdeller.com</a> has the same material, '
+          + 'or email <a href="mailto:marc@marcdeller.com">marc@marcdeller.com</a>.'
+        : '<b>chatMCD is not answering at the moment.</b> '
+          + esc(detail || '') + ' Try again shortly, or email '
+          + '<a href="mailto:marc@marcdeller.com">marc@marcdeller.com</a>.';
+      outageEl.hidden = false;
+    } else if (known === 'degraded' && reason === 'cold') {
+      outageEl.classList.add('is-degraded');
+      outageEl.innerHTML = '<b>Waking up.</b> The first answer may take a little '
+        + 'longer than usual.';
+      outageEl.hidden = false;
+    } else {
+      outageEl.hidden = true;
+    }
   }
 
   let healthTimer = null;
@@ -378,7 +406,7 @@
       const r = await fetch('/api/health', { cache: 'no-store' });
       if (!r.ok) throw new Error(String(r.status));
       const d = await r.json();
-      setHealth(d.status || (d.ok ? 'ok' : 'down'), d.detail || '');
+      setHealth(d.status || (d.ok ? 'ok' : 'down'), d.detail || '', d.reason || '');
     } catch (e) {
       // The page itself is unreachable, which the visitor cannot fix but
       // should be able to see.

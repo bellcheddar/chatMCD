@@ -12,10 +12,12 @@ front end shows "warming up" instead of an error.
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterator
 
 log = logging.getLogger(__name__)
@@ -40,7 +42,15 @@ class SpaceClient:
     FAIL_TTL = 600.0      # a failure means unhealthy for 10
     PROBE_TTL = 60.0      # and a handshake probe is cached for one
 
-    def __init__(self, space_id: str, token: str | None, timeout: float = 180.0):
+    # Running out of ZeroGPU credits is NOT like other failures and must not
+    # decay the way they do. The GPU allowance refills on its own schedule, so
+    # a quota failure stays true until a real generation proves otherwise:
+    # letting it lapse after ten minutes put the light back to amber on a site
+    # that still could not answer a single question.
+    RECOVERY_TTL = 600.0   # how often to spend a tiny call checking for a refill
+
+    def __init__(self, space_id: str, token: str | None, timeout: float = 180.0,
+                 state_path: str | None = None):
         self.space_id = space_id
         self.token = token
         self.timeout = timeout
@@ -57,6 +67,12 @@ class SpaceClient:
         self._detail = ""
         self._probe_at = 0.0
         self._probe_ok = None
+        # Sticky, and persisted, because a gunicorn restart must not turn the
+        # light green on a Space that still has no GPU time.
+        self._quota_at = 0.0
+        self._recovery_at = 0.0
+        self._state_path = Path(state_path) if state_path else None
+        self._load_state()
 
     # -- connection ---------------------------------------------------------
 
@@ -106,6 +122,74 @@ class SpaceClient:
             self._detail = str(e)[:120]
             return False
 
+    # -- the ZeroGPU allowance ----------------------------------------------
+
+    def _load_state(self) -> None:
+        """Remember an exhausted allowance across a restart."""
+        if not self._state_path or not self._state_path.exists():
+            return
+        try:
+            d = json.loads(self._state_path.read_text())
+            self._quota_at = float(d.get("quota_at", 0.0))
+            self._recovery_at = float(d.get("recovery_at", 0.0))
+        except Exception:  # noqa: BLE001 - a corrupt file must not stop the app
+            log.warning("could not read %s; starting with a clean state",
+                        self._state_path)
+
+    def _save_state(self) -> None:
+        if not self._state_path:
+            return
+        try:
+            self._state_path.parent.mkdir(parents=True, exist_ok=True)
+            self._state_path.write_text(json.dumps(
+                {"quota_at": self._quota_at, "recovery_at": self._recovery_at}))
+        except Exception:  # noqa: BLE001
+            log.warning("could not write %s", self._state_path)
+
+    def mark_quota_exhausted(self) -> None:
+        self._quota_at = time.time()
+        self._detail = "Out of ZeroGPU credits."
+        self._save_state()
+
+    def mark_working(self) -> None:
+        self._quota_at = 0.0
+        self._ok_at = self._warm_at = time.time()
+        self._fail_at = 0.0
+        self._save_state()
+
+    @property
+    def out_of_credits(self) -> bool:
+        return self._quota_at > 0.0
+
+    def _recovery_probe(self) -> bool:
+        """The smallest possible generation, to see whether the credits are back.
+
+        There is no API for this: Hugging Face publishes no ZeroGPU quota
+        endpoint, and an exhausted allowance is indistinguishable from any other
+        failure over the wire (`event: error` with a null payload, on both an
+        anonymous and an authenticated call: measured). The only way to know is
+        to try to generate something.
+
+        So the probe asks for eight tokens, at most once every ten minutes, and
+        only when someone is actually looking at the page. An idle site spends
+        nothing, and a recovered one goes green without waiting for a visitor to
+        discover it by asking a real question and getting an error.
+        """
+        self._recovery_at = time.time()
+        self._save_state()
+        try:
+            job = self.client().submit("hi", None, 0.0, 0.9, 1.0, 8,
+                                       api_name="/chat")
+            produced = any(str(p).strip() for p in job)
+        except Exception as e:  # noqa: BLE001
+            log.info("recovery probe failed: %s", str(e)[:120])
+            return False
+        if produced:
+            log.info("ZeroGPU credits are back")
+            self.mark_working()
+            return True
+        return False
+
     def health(self) -> dict:
         """Green, amber or red, from what has actually happened.
 
@@ -116,26 +200,62 @@ class SpaceClient:
                be reached at all
         """
         now = time.time()
+
+        # The allowance comes first, and does not decay. It is also the only
+        # state that says plainly what is wrong and when it will right itself,
+        # which is what a visitor needs and what Marc needs at a glance.
+        if self.out_of_credits:
+            if now - self._recovery_at > self.RECOVERY_TTL:
+                if self._recovery_probe():
+                    return {"state": "ok", "detail": "Answering normally.",
+                            "warm": True, "reason": ""}
+            return {"state": "down", "reason": "quota",
+                    "detail": "Out of ZeroGPU credits: chatMCD cannot answer "
+                              "until the allowance refills.",
+                    "warm": self.warm}
+
         if now - self._fail_at < self.FAIL_TTL:
-            return {"state": "down", "detail": self._detail or
+            return {"state": "down", "reason": "error", "detail": self._detail or
                     "The model is not responding.", "warm": self.warm}
         if now - self._ok_at < self.OK_TTL:
             if now - self._slow_at < self.FAIL_TTL:
-                return {"state": "degraded",
+                return {"state": "degraded", "reason": "busy",
                         "detail": self._detail or "Busy: answers may be slow.",
                         "warm": self.warm}
-            return {"state": "ok", "detail": "Answering normally.", "warm": self.warm}
+            return {"state": "ok", "reason": "", "detail": "Answering normally.",
+                    "warm": self.warm}
 
         # Nothing recent to go on, so check reachability. Cached, because every
         # open tab polls this.
         if now - self._probe_at > self.PROBE_TTL:
             self.ping()
+
+        # The handshake proves the Space is UP. It proves nothing about whether
+        # there is any GPU allowance left, because fetching a config never
+        # touches a GPU: a Space with no credits answers the handshake happily
+        # and then returns nothing to every question. So when generation has
+        # never been observed to work -- a fresh deploy, a restart with no saved
+        # state -- do not report green on the strength of a handshake. Spend one
+        # eight-token generation and find out.
+        if self._probe_ok and not self._ok_at and                 now - self._recovery_at > self.RECOVERY_TTL:
+            if self._recovery_probe():
+                return {"state": "ok", "reason": "", "detail": "Answering normally.",
+                        "warm": True}
+            self.mark_quota_exhausted()
+            return {"state": "down", "reason": "quota",
+                    "detail": "Out of ZeroGPU credits: chatMCD cannot answer "
+                              "until the allowance refills.",
+                    "warm": self.warm}
+
         if self._probe_ok is False:
-            return {"state": "down", "detail": self._detail or
-                    "The model cannot be reached.", "warm": False}
+            return {"state": "down", "reason": "unreachable",
+                    "detail": self._detail or "The model cannot be reached.",
+                    "warm": False}
         if self._probe_ok is None:
-            return {"state": "degraded", "detail": "Waking up.", "warm": False}
+            return {"state": "degraded", "reason": "waking",
+                    "detail": "Waking up.", "warm": False}
         return {"state": "ok" if self.warm else "degraded",
+                "reason": "" if self.warm else "cold",
                 "detail": "Ready." if self.warm
                           else "Idle: the first answer may take a moment.",
                 "warm": self.warm}
@@ -219,15 +339,18 @@ class SpaceClient:
             # which names the token as the fix -- goes to the log above, because
             # a public page about Marc should not be printing this server's
             # configuration advice to whoever happens to be reading.
+            # This IS the quota signature: HTTP 200, the job reports FINISHED,
+            # and not one token comes back. Recorded as such so the status light
+            # stays red until a generation actually succeeds again.
             self._fail_at = time.time()
-            self._detail = "Out of GPU time for the moment."
+            self.mark_quota_exhausted()
             yield ChatChunk("error", "error",
                             "chatMCD has run out of GPU time for the moment. "
                             "Please try again shortly.")
             return
 
-        self._warm_at = self._ok_at = time.time()
-        self._fail_at = 0.0
+        # A real answer clears everything, including an exhausted allowance.
+        self.mark_working()
         yield ChatChunk("done", "")
 
     @staticmethod
@@ -286,8 +409,77 @@ class MockClient:
     def ping(self) -> bool:
         return True
 
+    # -- the ZeroGPU allowance ----------------------------------------------
+
+    def _load_state(self) -> None:
+        """Remember an exhausted allowance across a restart."""
+        if not self._state_path or not self._state_path.exists():
+            return
+        try:
+            d = json.loads(self._state_path.read_text())
+            self._quota_at = float(d.get("quota_at", 0.0))
+            self._recovery_at = float(d.get("recovery_at", 0.0))
+        except Exception:  # noqa: BLE001 - a corrupt file must not stop the app
+            log.warning("could not read %s; starting with a clean state",
+                        self._state_path)
+
+    def _save_state(self) -> None:
+        if not self._state_path:
+            return
+        try:
+            self._state_path.parent.mkdir(parents=True, exist_ok=True)
+            self._state_path.write_text(json.dumps(
+                {"quota_at": self._quota_at, "recovery_at": self._recovery_at}))
+        except Exception:  # noqa: BLE001
+            log.warning("could not write %s", self._state_path)
+
+    def mark_quota_exhausted(self) -> None:
+        self._quota_at = time.time()
+        self._detail = "Out of ZeroGPU credits."
+        self._save_state()
+
+    def mark_working(self) -> None:
+        self._quota_at = 0.0
+        self._ok_at = self._warm_at = time.time()
+        self._fail_at = 0.0
+        self._save_state()
+
+    @property
+    def out_of_credits(self) -> bool:
+        return self._quota_at > 0.0
+
+    def _recovery_probe(self) -> bool:
+        """The smallest possible generation, to see whether the credits are back.
+
+        There is no API for this: Hugging Face publishes no ZeroGPU quota
+        endpoint, and an exhausted allowance is indistinguishable from any other
+        failure over the wire (`event: error` with a null payload, on both an
+        anonymous and an authenticated call: measured). The only way to know is
+        to try to generate something.
+
+        So the probe asks for eight tokens, at most once every ten minutes, and
+        only when someone is actually looking at the page. An idle site spends
+        nothing, and a recovered one goes green without waiting for a visitor to
+        discover it by asking a real question and getting an error.
+        """
+        self._recovery_at = time.time()
+        self._save_state()
+        try:
+            job = self.client().submit("hi", None, 0.0, 0.9, 1.0, 8,
+                                       api_name="/chat")
+            produced = any(str(p).strip() for p in job)
+        except Exception as e:  # noqa: BLE001
+            log.info("recovery probe failed: %s", str(e)[:120])
+            return False
+        if produced:
+            log.info("ZeroGPU credits are back")
+            self.mark_working()
+            return True
+        return False
+
     def health(self) -> dict:
-        return {"state": "ok", "detail": "Mock: no model is running.", "warm": True}
+        return {"state": "ok", "reason": "", "detail": "Mock: no model is running.",
+                "warm": True}
 
     def stream(self, message: str, history: list[dict], **_) -> Iterator[ChatChunk]:
         low = message.lower()

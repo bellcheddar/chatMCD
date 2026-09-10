@@ -157,8 +157,11 @@ def create_app(config_object: type = Config) -> Flask:
                         format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
     mock = os.environ.get("MOCK_SPACE", "0") in {"1", "true", "on"}
+    # The quota state lives beside the question log, so a restart does not show
+    # a green light on a Space that still has no GPU allowance.
     space = MockClient() if mock else SpaceClient(
-        app.config["HF_SPACE_ID"], app.config["HF_TOKEN"], app.config["HF_TIMEOUT"])
+        app.config["HF_SPACE_ID"], app.config["HF_TOKEN"], app.config["HF_TIMEOUT"],
+        state_path=str(Path(app.config["DB_PATH"]).with_name("space-state.json")))
     if mock:
         log.warning("MOCK_SPACE=1 — answers are canned, no model is being called")
     app.extensions["space"] = space
@@ -301,6 +304,7 @@ def _register_routes(app: Flask) -> None:
         return jsonify({
             "ok": h["state"] != "down",
             "status": h["state"],          # ok | degraded | down
+            "reason": h.get("reason", ""),  # quota | error | unreachable | busy | cold
             "detail": h["detail"],
             "version": app.config["VERSION"],
             "space": app.config["HF_SPACE_ID"],

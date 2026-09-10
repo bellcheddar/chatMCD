@@ -538,6 +538,23 @@ body.is-app .shell {
   position: relative; z-index: 2;
 }
 
+/* The outage notice. Deliberately calm rather than alarming: nothing is broken
+   from the visitor's point of view, the model simply has no GPU allowance left
+   until it refills, and they should be told before they type a question. */
+.outage {
+  margin: 0 0 9px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  border-left: 3px solid #C4344B;
+  background: var(--surf-2);
+  color: var(--ink-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.outage b { color: var(--ink); font-weight: 600; }
+.outage.is-degraded { border-left-color: var(--acc2); }
+
 .chips { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 10px; }
 
 .chip {
