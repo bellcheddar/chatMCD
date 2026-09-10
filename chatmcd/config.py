@@ -43,7 +43,11 @@ class Config:
     TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.7"))
     TOP_P = float(os.environ.get("TOP_P", "0.9"))
     REPETITION_PENALTY = float(os.environ.get("REPETITION_PENALTY", "1.05"))
-    MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "512"))
+    # 512 truncated the richer answers mid-sentence: a "walk me through his
+    # career" answer with a section per employer runs well past it. The
+    # slowest measured answer took 14s at 512 tokens, so 1200 is about 35s,
+    # comfortably inside the Space's GPU window.
+    MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "1200"))
     MAX_HISTORY_TURNS = int(os.environ.get("MAX_HISTORY_TURNS", "8"))
     MAX_MESSAGE_CHARS = int(os.environ.get("MAX_MESSAGE_CHARS", "2000"))
 

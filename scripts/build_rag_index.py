@@ -50,7 +50,9 @@ def main() -> int:
     import numpy as np
     from sentence_transformers import SentenceTransformer
 
-    texts, titles, kinds, seen = [], [], [], set()
+    # `texts` is what the model is shown; `embed` is what is vectorised. They
+    # differ for Q&A pairs and are identical for prose chunks.
+    texts, embed, titles, kinds, seen = [], [], [], [], set()
 
     # 1. The hand-written Q&A pairs. Short, question-shaped, densely factual.
     for split in ("train", "valid", "test"):
@@ -72,6 +74,27 @@ def main() -> int:
                 continue
             seen.add(text)
             texts.append(text)
+            # WEIGHT THE QUESTION, KEEP A LITTLE OF THE ANSWER. Embedding the
+            # whole pair lets a long answer dominate: a pair whose question is
+            # word for word the query scored 0.401 that way, and 0.939 on the
+            # question alone. all-MiniLM-L6-v2 also stops at 256 tokens, so the
+            # tail of a long answer was being truncated regardless.
+            #
+            # But the answer's text is doing real work too: it is how "where did
+            # he go to school" finds the pair naming the schools, when the
+            # question itself looks just like "where did he study". Dropping it
+            # entirely made three evaluation answers unreachable.
+            #
+            # So: the question twice, then the head of the answer. Repeating the
+            # question is a blunt way to weight it and it is chosen on
+            # measurement rather than taste. Across the 15 preset prompts and the
+            # 50 evaluation questions:
+            #
+            #   Q + A (before)   6 weak presets, 1 unreachable
+            #   Q only           0 weak presets, 3 unreachable
+            #   Q + 300 of A     1 weak preset,  2 unreachable
+            #   Q twice + 300    1 weak preset,  0 unreachable   <- this
+            embed.append(f"{q}\n{q}\n{a[:300]}")
             titles.append(q[:90])
             kinds.append("qa")
     n_qa = len(texts)
@@ -92,12 +115,15 @@ def main() -> int:
             m = TITLE_RE.search(text)
             titles.append(m.group(1) if m else "chatMCD corpus")
             texts.append(text)
+            # A prose chunk has no question, so it is matched on its content.
+            embed.append(text)
             kinds.append("chunk")
 
     print(f"{n_qa} Q&A pairs + {len(texts) - n_qa} corpus chunks = {len(texts)} units, "
           f"{sum(len(t) for t in texts) / 1e6:.2f} M chars")
     encoder = SentenceTransformer(MODEL)
-    vectors = encoder.encode(texts, batch_size=args.batch_size,
+    assert len(embed) == len(texts) == len(titles) == len(kinds)
+    vectors = encoder.encode(embed, batch_size=args.batch_size,
                              normalize_embeddings=True, show_progress_bar=True)
     vectors = np.asarray(vectors, dtype="float32")
 

@@ -192,10 +192,13 @@ def build_messages(message: str, history: list | None) -> list[dict]:
     return messages
 
 
-@spaces.GPU(duration=60)
+# 120s, not 60. A long structured answer at 1200 tokens takes about 35s of
+# generation on top of a prefill over eleven retrieved passages, and a GPU
+# window that expires mid-answer truncates it with no error.
+@spaces.GPU(duration=120)
 def chat(message: str, history: list | None = None, temperature: float = 0.7,
          top_p: float = 0.9, repetition_penalty: float = 1.05,
-         max_new_tokens: int = 512):
+         max_new_tokens: int = 1200):
     """Stream an answer. Yields the answer *so far* on each step, which is what
     Gradio's streaming contract expects and what hf_client.py diffs into deltas."""
     message = (message or "").strip()

@@ -36,6 +36,8 @@ Step 2 is what stops it making things up. The model is not asked "what do you kn
 
 **Why matching questions to questions works so well.** The library is built mostly from short question-and-answer pairs rather than long prose. A question like "what is Elora Therapeutics?" looks, mathematically, far more like another short question than it does like a page of a scientific paper, so the match is much sharper. Longer passages are kept alongside them, because they are the only way to reach the long tail of blog posts that the short pairs do not cover.
 
+**What gets compared matters as much as what gets stored.** Each pair is searched on its *question*, repeated to weight it, plus the first 300 characters of its answer: not on the whole pair. Searching the whole pair lets a long answer drown the question it belongs to. Measured on a pair whose question is word for word the query, the score was **0.401** with the answer included and **0.939** on the question alone, and the embedding model truncates at 256 tokens so the tail of a long answer never counted anyway. Keeping the head of the answer is what still lets "where did he go to school" find the pair naming the schools, when the question alone looks just like "where did he study".
+
 **No fine-tuning.** The language model is used exactly as published. Nothing is trained, and there is no custom model to keep in step with the writing: when Marc writes something new, the library is rebuilt and the answers change. This was measured rather than assumed, and it also scored better.
 
 ## 📊 How well it works
@@ -44,19 +46,20 @@ Measured on a fixed set of 50 questions in six categories, run end to end throug
 
 | Category | What it tests | Score |
 |---|---|---:|
-| Facts | Roles, employers, publication and structure counts, qualifications | 16/17 |
-| Depth | Detailed scientific explanations | 8/8 |
+| Facts | Roles, employers, publication and structure counts, qualifications | 17/17 |
 | Personality | Style, philosophy, the stories behind project names | 8/8 |
 | Web | Blog posts, site pages, the other apps | 8/8 |
 | Manners | Off-topic requests: it must redirect, not comply | 5/5 |
 | Honesty | Things the writing genuinely does not cover: it must decline | 4/4 |
-| **Overall** | | **49/50 (98%)** |
+| Depth | Detailed scientific explanations | 6/8 |
+| **Overall** | | **48/50 (96%)** |
 
-The single miss is the name of a doctoral supervisor, which is simply not in the
-writing yet. Earlier runs of the same 50 questions scored 45 and 46, so treat
-90-98% as the honest range rather than 98% as a settled figure: one run is one
-run, and the model samples. What moved it was better example refusals and asking
-for more structured answers, both of which are in the To Do list below.
+Treat **96-98%** as the honest range rather than either number as settled. The
+two most recent runs scored 48 and 49 and traded which bucket they lost: one
+took facts to 17/17 and dropped two depth questions, the other did the reverse.
+The model samples, and one run is one run. Earlier in the project the same 50
+questions scored 45 and 46; what moved them was better example refusals, asking
+for more structured answers, and the retrieval fix described below.
 
 A typical answer starts arriving in about **5 to 7 seconds**.
 
@@ -195,6 +198,8 @@ Roadmap for chatMCD, newest first. Suggestions welcome.
 - [x] **Daily usage digest by email.** `scripts/daily_digest.py` sends what was asked, what was answered, where the visitor was, on what device and how long it took, from cron at 07:15 UTC. Delivery confirmed end to end, not just accepted. DigitalOcean blocks every outbound SMTP port on this droplet (25, 465, 587 and 2525 all refuse a connection), so it posts to a transactional email API over 443 instead. Two things bit on the first real send, both invisible until a key existed: a `urllib.parse` import *inside* the function shadowed the module-level `urllib` for the whole function, so the branch that never ran that line died on `UnboundLocalError`; and Cloudflare fronts the API and blocks urllib's default agent with a 403 that reads exactly like a rejected key. Both are now covered by tests that drive the send with a fake transport.
 - [x] **Stopped it writing poems and code.** Asked for a sorting function it used to write one. The cause was measured rather than guessed: the nearest refusal example scored 0.237 against the question, below five of Marc's coding tools, so retrieval handed the model a context that invited a code answer. Twelve explicit refusals for the "write me X" family took that match to **0.813**, and it now declines cleanly.
 - [x] **Says so when nothing relevant is found.** Below a best-match score of 0.55 the model is told the context is thin and asked to decline rather than answer from it. The threshold is measured, and the measurement is the interesting part: the two distributions **overlap**, with answerable questions bottoming out at 0.603 and must-decline questions reaching 0.657, so no threshold separates them cleanly. 0.55 sits below every answerable question with room to spare and still catches the clearest misses. It is a hint to the model, not a gate.
+- [x] **Fixed what the retrieval actually compares.** Each Q&A pair was searched on its whole text, so a long answer drowned the question it belonged to: seven of the fifteen preset buttons retrieved the wrong thing, and "Fun facts about Marc" best-matched "What is Marc's passport number?". Pairs are now searched on the question, weighted, plus the head of the answer. Chosen by measuring four strategies against both the preset buttons and the 50 evaluation questions, because the obvious fix (question only) repaired the buttons and broke three evaluation answers.
+- [x] **Corrected a confident, wrong answer.** It credited Marc's BSc to the University of Nottingham. He grew up there, but the degree is Leeds. The cause was a shorthand written as a chain of institutions ("Nottingham to Leeds to Oxford to Yale...") in two files, which reads as a list of universities. Worth recording that lowering the sampling temperature made it *worse*, four times in five rather than one in six: the error was the model's most likely output, not noise, so a more deterministic model produced it more often. The fix was the source text and the retrieval, not the sampling.
 - [ ] **Feed the questions back in.** The daily digest surfaces what visitors actually asked; `scripts/digest.py` groups it by frequency. Open because it is a habit rather than a build step: read the long tail, and write the missing answers into the library.
 
 ## 📄 Licence
