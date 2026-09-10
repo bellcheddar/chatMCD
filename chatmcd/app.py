@@ -26,7 +26,7 @@ from pathlib import Path
 from flask import (Flask, Response, abort, g, jsonify, render_template, request,
                    send_from_directory, stream_with_context)
 
-from .config import GREETING, LINKS, PRESETS, Config
+from .config import EMBED_PRESETS, GREETING, LINKS, PRESETS, Config
 from .hf_client import KeepWarm, MockClient, SpaceClient
 
 log = logging.getLogger("chatmcd")
@@ -41,6 +41,31 @@ def scrub(text: str) -> str:
     return _PHONE.sub("[phone]", _EMAIL.sub("[email]", text))
 
 
+# Phrases that mean the bot declined. Used only to flag a row in the digest, so
+# Marc can see at a glance which questions the writing does not yet cover.
+DECLINED = re.compile(
+    r"\b(?:don'?t|do not|doesn'?t)\s+(?:have|know|hold)\b"
+    r"|\bnot something I\b|\bisn'?t something\b|\boutside (?:what|the|my)\b"
+    r"|\bno (?:record|information|mention|detail)\b|\bnot covered\b"
+    r"|\bI'?m afraid\b|\bcan'?t (?:say|help|provide)\b", re.I)
+
+
+def client_ip() -> str:
+    """The visitor's address, not nginx's.
+
+    Everything reaches Flask through the local proxy, so remote_addr is always
+    127.0.0.1 and logging it would give a database full of one address. nginx
+    sets both headers (see deploy/nginx-chatmcd.conf); X-Forwarded-For is a
+    chain, and the client is its FIRST entry, with any downstream proxy appended
+    after it. Trusting the last entry instead is the classic way to log your own
+    load balancer.
+    """
+    fwd = request.headers.get("X-Forwarded-For", "")
+    if fwd:
+        return fwd.split(",")[0].strip()[:45]
+    return (request.headers.get("X-Real-IP") or request.remote_addr or "")[:45]
+
+
 # --------------------------------------------------------------------- storage
 
 SCHEMA = """
@@ -50,7 +75,12 @@ CREATE TABLE IF NOT EXISTS questions (
     source     TEXT NOT NULL,          -- app | iframe | shortcode | api
     question   TEXT NOT NULL,
     turn       INTEGER NOT NULL DEFAULT 0,
-    said_idk   INTEGER NOT NULL DEFAULT 0
+    said_idk   INTEGER NOT NULL DEFAULT 0,
+    ip         TEXT,                   -- resolved to a country only in the digest
+    user_agent TEXT,
+    answer     TEXT,                   -- written back when the stream finishes
+    latency    REAL,                   -- seconds to the last token
+    ref        TEXT                    -- referring page, for the embedded widget
 );
 CREATE TABLE IF NOT EXISTS feedback (
     id         INTEGER PRIMARY KEY,
@@ -65,12 +95,48 @@ CREATE INDEX IF NOT EXISTS feedback_ts  ON feedback(ts);
 """
 
 
+# Columns added after the table already existed in production. SQLite's
+# ADD COLUMN is cheap and non-destructive, but it errors if the column is
+# already there, so each one is attempted individually and its "duplicate
+# column" is ignored. A fresh database gets them from SCHEMA above and skips
+# every one of these.
+MIGRATIONS = [
+    ("questions", "ip", "TEXT"),
+    ("questions", "user_agent", "TEXT"),
+    ("questions", "answer", "TEXT"),
+    ("questions", "latency", "REAL"),
+    ("questions", "ref", "TEXT"),
+]
+
+
+def migrate(conn: sqlite3.Connection) -> None:
+    for table, column, decl in MIGRATIONS:
+        try:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+        except sqlite3.OperationalError as e:
+            if "duplicate column" not in str(e).lower():
+                raise
+    conn.commit()
+
+
+def connect(path_str: str) -> sqlite3.Connection:
+    """Open the question log, creating and migrating it as needed.
+
+    Separate from db() because the SSE generator finishes *after* the request
+    has ended, so it cannot use the request-scoped connection to write back the
+    answer it just streamed.
+    """
+    path = Path(path_str)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path, timeout=5)
+    conn.executescript(SCHEMA)
+    migrate(conn)
+    return conn
+
+
 def db(app: Flask) -> sqlite3.Connection:
     if "db" not in g:
-        path = Path(app.config["DB_PATH"])
-        path.parent.mkdir(parents=True, exist_ok=True)
-        g.db = sqlite3.connect(path, timeout=5)
-        g.db.executescript(SCHEMA)
+        g.db = connect(app.config["DB_PATH"])
     return g.db
 
 
@@ -195,7 +261,13 @@ def _register_routes(app: Flask) -> None:
         # attribute) picks a palette. "auto" follows the visitor's system
         # setting; anything unrecognised falls through to the light default.
         theme = request.args.get("theme", "").lower()
-        return dict(links=LINKS, presets=PRESETS, greeting=GREETING,
+        # The widget gets a SHORT list, not the full one clipped by CSS. The
+        # embed styles cap the chip strip at two rows with overflow:hidden, so
+        # rendering all fifteen there would leave ten of them in the DOM,
+        # focusable by keyboard and invisible to everyone: the same bug as an
+        # actions bar sitting below the fold. Fewer chips is the honest fix.
+        n = len(PRESETS) if extra.get("mode") == "app" else EMBED_PRESETS
+        return dict(links=LINKS, presets=PRESETS[:n], greeting=GREETING,
                     version=app.config["VERSION"],
                     forced_theme=theme if theme in {"light", "dark", "auto"} else "",
                     **extra)
@@ -284,15 +356,39 @@ def _register_routes(app: Flask) -> None:
         max_new = int(_num(body.get("max_tokens"), app.config["MAX_NEW_TOKENS"], 16, 2048))
         wants_stream = body.get("stream", True) is not False
 
+        # The row goes in BEFORE the answer is generated, so a question is still
+        # recorded if the stream dies half way. The answer, how long it took and
+        # whether it declined are written back onto the same row at the end.
+        row_id, started = None, time.time()
         if app.config["LOG_QUESTIONS"]:
             try:
                 conn = db(app)
-                conn.execute(
-                    "INSERT INTO questions (ts, source, question, turn) VALUES (?,?,?,?)",
-                    (time.time(), source, scrub(message)[:500], len(history) // 2))
+                cur = conn.execute(
+                    "INSERT INTO questions (ts, source, question, turn, ip, "
+                    "user_agent, ref) VALUES (?,?,?,?,?,?,?)",
+                    (started, source, scrub(message)[:500], len(history) // 2,
+                     client_ip(), (request.headers.get("User-Agent") or "")[:300],
+                     (request.headers.get("Referer") or "")[:300]))
+                row_id = cur.lastrowid
                 conn.commit()
             except Exception:
                 log.exception("question logging failed")
+
+        def finish(answer: str) -> None:
+            """Write the answer back. Runs after the response has been sent, so
+            it opens its own connection rather than using the request's."""
+            if row_id is None:
+                return
+            try:
+                c = connect(app.config["DB_PATH"])
+                c.execute("UPDATE questions SET answer = ?, latency = ?, "
+                          "said_idk = ? WHERE id = ?",
+                          (scrub(answer)[:4000], round(time.time() - started, 2),
+                           int(bool(DECLINED.search(answer))), row_id))
+                c.commit()
+                c.close()
+            except Exception:
+                log.exception("answer logging failed")
 
         chunks = space.stream(
             message, history,
@@ -310,15 +406,19 @@ def _register_routes(app: Flask) -> None:
                     return jsonify({"error": c.detail}), 502
                 elif c.kind == "status":
                     status = c.text
-            return jsonify({"answer": "".join(parts).strip(), "status": status})
+            answer = "".join(parts).strip()
+            finish(answer)
+            return jsonify({"answer": answer, "status": status})
 
         @stream_with_context
         def events():
             rid = uuid.uuid4().hex[:12]
             yield _sse("meta", {"id": rid})
+            parts = []
             try:
                 for c in chunks:
                     if c.kind == "token":
+                        parts.append(c.text)
                         yield _sse("token", {"t": c.text})
                     elif c.kind == "status":
                         yield _sse("status", {"state": c.text, "detail": c.detail})
@@ -332,6 +432,10 @@ def _register_routes(app: Flask) -> None:
             except Exception as e:
                 log.exception("stream failed")
                 yield _sse("error", {"detail": str(e)[:200]})
+            finally:
+                # Runs on a clean finish, an error, and a visitor pressing Stop,
+                # so a half-read answer is still recorded as what they saw.
+                finish("".join(parts).strip())
 
         return Response(events(), mimetype="text/event-stream", headers={
             "Cache-Control": "no-cache, no-transform",

@@ -74,15 +74,50 @@
    * numbered lists, paragraphs. Everything is escaped before any tag is added,
    * so model output can never inject markup.
    */
+  /** One table row: split on | and drop the empty cells the outer pipes make. */
+  function cells(line) {
+    return line.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map((c) => c.trim());
+  }
+  const SEP = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
+  const align = (c) => (c.startsWith(':') && c.endsWith(':') ? ' style="text-align:center"'
+    : c.endsWith(':') ? ' style="text-align:right"' : '');
+
   function md(src) {
     const lines = esc(src).split('\n');
     const out = [];
-    let list = null;      // 'ul' | 'ol' | null
     let fence = null;     // accumulating code block
 
-    const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+    // A STACK, not a single list. Asking the model for richer answers made it
+    // write nested lists -- bullets indented under a numbered step -- and a flat
+    // parser treats the first sub-bullet as the end of the parent list. The next
+    // numbered item then opens a fresh <ol>, which every browser numbers from 1
+    // again. Same "1. 1. 1." symptom as the loose-list bug, different cause.
+    const stack = [];     // [{ tag, indent, insideLi }]
 
-    for (const line of lines) {
+    /** Open a list, nesting it INSIDE the previous <li> rather than beside it,
+     *  so the markup stays valid and the sub-list indents under its parent. */
+    const openList = (tag, indent) => {
+      let insideLi = false;
+      if (stack.length && out.length && out[out.length - 1].endsWith('</li>')) {
+        out.push(out.pop().replace(/<\/li>$/, ''));
+        insideLi = true;
+      }
+      out.push(`<${tag}>`);
+      stack.push({ tag, indent, insideLi });
+    };
+    const popList = () => {
+      const f = stack.pop();
+      out.push(`</${f.tag}>` + (f.insideLi ? '</li>' : ''));
+    };
+    const closeList = () => { while (stack.length) popList(); };
+    /** Close any level indented deeper than this line. */
+    const closeDeeper = (indent) => {
+      while (stack.length && stack[stack.length - 1].indent > indent) popList();
+    };
+
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i];
+
       if (fence !== null) {
         if (/^```/.test(line)) { out.push(`<pre><code>${fence.join('\n')}</code></pre>`); fence = null; }
         else fence.push(line);
@@ -90,19 +125,87 @@
       }
       if (/^```/.test(line)) { closeList(); fence = []; continue; }
 
-      const h = line.match(/^(#{1,4})\s+(.*)$/);
-      if (h) { closeList(); out.push(`<p><strong>${inline(h[2])}</strong></p>`); continue; }
-
-      const ul = line.match(/^\s*[-*+]\s+(.*)$/);
-      if (ul) {
-        if (list !== 'ul') { closeList(); out.push('<ul>'); list = 'ul'; }
-        out.push(`<li>${inline(ul[1])}</li>`);
+      // A table: a pipe row whose NEXT line is the |---|---| separator. Needs
+      // one line of lookahead, which is why this loop is indexed. While the
+      // answer is still streaming the separator has not arrived yet, so the
+      // header renders as an ordinary paragraph for a moment and then becomes a
+      // table: no half-drawn markup at any point.
+      if (/\|/.test(line) && line.trim().startsWith('|') && SEP.test(lines[i + 1] || '')) {
+        closeList();
+        const head = cells(line);
+        const al = cells(lines[i + 1]).map(align);
+        const body = [];
+        let j = i + 2;
+        for (; j < lines.length; j += 1) {
+          const row = lines[j];
+          if (!row.trim() || !row.trim().startsWith('|')) break;
+          body.push(cells(row));
+        }
+        out.push('<div class="md-table"><table><thead><tr>'
+          + head.map((c, k) => `<th${al[k] || ''}>${inline(c)}</th>`).join('')
+          + '</tr></thead><tbody>'
+          + body.map((r) => '<tr>'
+            + r.map((c, k) => `<td${al[k] || ''}>${inline(c)}</td>`).join('')
+            + '</tr>').join('')
+          + '</tbody></table></div>');
+        i = j - 1;
         continue;
       }
-      const ol = line.match(/^\s*\d+[.)]\s+(.*)$/);
-      if (ol) {
-        if (list !== 'ol') { closeList(); out.push('<ol>'); list = 'ol'; }
-        out.push(`<li>${inline(ol[1])}</li>`);
+
+      // A bare list marker with nothing after it. The model emits one now and
+      // then when it stops mid-list, and it rendered as a stray "-" hanging
+      // under the answer. Nothing to show, so show nothing.
+      if (/^\s*([-*+]|\d+[.)])\s*$/.test(line)) continue;
+
+      // A horizontal rule, but only outside a table (|---| is handled above).
+      if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { closeList(); out.push('<hr>'); continue; }
+
+      const h = line.match(/^(#{1,4})\s+(.*)$/);
+      if (h) {
+        closeList();
+        // A real heading, not a bold paragraph: it carries the accent colour and
+        // gives a long answer a scannable spine.
+        const lvl = Math.min(h[1].length + 2, 5);
+        out.push(`<h${lvl} class="md-h">${inline(h[2])}</h${lvl}>`);
+        continue;
+      }
+
+      // A callout. The model uses it for the one thing worth pulling out of a
+      // long answer, and it renders with an accent bar rather than as a quote.
+      // Matched as &gt; because esc() runs over the whole source before this
+      // parser sees a line, so a markdown "> " has already become "&gt; ".
+      const BQ = /^\s*&gt;\s?(.*)$/;
+      const bq = line.match(BQ);
+      if (bq) {
+        closeList();
+        const buf = [bq[1]];
+        let j = i + 1;
+        for (; j < lines.length; j += 1) {
+          const m = lines[j].match(BQ);
+          if (!m) break;
+          buf.push(m[1]);
+        }
+        out.push(`<div class="md-note">${inline(buf.join(' ').trim())}</div>`);
+        i = j - 1;
+        continue;
+      }
+
+      const ul = line.match(/^(\s*)[-*+]\s+(.*)$/);
+      const ol = ul ? null : line.match(/^(\s*)\d+[.)]\s+(.*)$/);
+      const item = ul || ol;
+      if (item) {
+        const tag = ul ? 'ul' : 'ol';
+        const indent = item[1].length;
+        closeDeeper(indent);
+        const top = stack[stack.length - 1];
+        if (!top || indent > top.indent) {
+          openList(tag, indent);
+        } else if (top.tag !== tag) {
+          // Same depth, different kind: a bulleted list following a numbered one.
+          popList();
+          openList(tag, indent);
+        }
+        out.push(`<li>${inline(item[2])}</li>`);
         continue;
       }
 
@@ -110,7 +213,7 @@
       // block. Markdown indents it, and closing the list here started a fresh
       // <ol> on the next item -- which is why every step of a numbered answer
       // rendered as "1.".
-      if (list && /^\s{2,}\S/.test(line) && out[out.length - 1].endsWith('</li>')) {
+      if (stack.length && /^\s{2,}\S/.test(line) && out[out.length - 1].endsWith('</li>')) {
         out.push(out.pop().replace(/<\/li>$/, ' ' + inline(line.trim()) + '</li>'));
         continue;
       }

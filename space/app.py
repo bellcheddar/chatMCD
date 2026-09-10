@@ -42,6 +42,18 @@ RAG_TOP_K = int(os.environ.get("RAG_TOP_K", "8"))
 # everything for recall, with prompts roughly a fifth the length.
 RAG_KINDS = os.environ.get("RAG_KINDS", "hybrid")
 RAG_CHUNKS = int(os.environ.get("RAG_CHUNKS", "3"))
+# Below this best-match score, nothing relevant was found and the model is told
+# so. Retrieval always returns its top k, however poor the match, so without
+# this the model is handed irrelevant context and invited to answer from it.
+#
+# 0.55 is measured, not chosen. Across the 50-question set the two distributions
+# OVERLAP: questions that must be answered bottom out at 0.603, and questions
+# that must be declined reach 0.657, so no threshold separates them cleanly and
+# anything above 0.60 would start silencing real questions. 0.55 sits under
+# every answerable question in the set with room to spare, and still catches the
+# clearest misses, including "write me a Python function" at 0.237. It is a
+# hint, not a gate: the model is told the context is thin and left to judge.
+RAG_MIN_SCORE = float(os.environ.get("RAG_MIN_SCORE", "0.55"))
 MAX_HISTORY_TURNS = 8
 
 SYSTEM_PROMPT = (HERE / "system_prompt.md").read_text().strip()
@@ -109,17 +121,23 @@ class Retriever:
         if not self.qa_mask.any():
             self.qa_mask = np.ones(len(self.texts), dtype=bool)
 
-    def top(self, query: str, k: int) -> list[tuple[str, str]]:
+    def top(self, query: str, k: int) -> tuple[list[tuple[str, str]], float]:
+        """Return the passages and the BEST score among them.
+
+        The score is what tells the caller whether anything relevant was found
+        at all: the top k always comes back, however poor the match.
+        """
         np_ = self.np
         q = self.encoder.encode([query], normalize_embeddings=True)[0]
         scores = self.vectors @ q
         if RAG_KINDS == "all":
-            idx = np_.argsort(-scores)[:k]
+            idx = list(np_.argsort(-scores)[:k])
         else:
             idx = list(np_.argsort(-np_.where(self.qa_mask, scores, -9.0))[:k])
             if RAG_KINDS == "hybrid" and RAG_CHUNKS > 0:
                 idx += list(np_.argsort(-np_.where(~self.qa_mask, scores, -9.0))[:RAG_CHUNKS])
-        return [(self.titles[i], self.texts[i]) for i in idx]
+        best = float(max((scores[i] for i in idx), default=0.0))
+        return [(self.titles[i], self.texts[i]) for i in idx], best
 
 
 retriever: Retriever | None = None
@@ -150,13 +168,26 @@ def build_messages(message: str, history: list | None) -> list[dict]:
 
     user = message
     if retriever is not None:
-        chunks = retriever.top(message, RAG_TOP_K)
+        chunks, best = retriever.top(message, RAG_TOP_K)
         context = "\n\n".join(f"[{t}]\n{c}" for t, c in chunks)
-        # The fine-tune owns voice; retrieval owns exact numbers. Context goes in
-        # the user turn, above the question, which is how the training records
-        # present quoted source material.
-        user = (f"<context>\n{context}\n</context>\n\n"
-                f"Using the context above only where it is relevant, answer: {message}")
+        # Retrieval owns the exact numbers. Context goes in the user turn, above
+        # the question, which is how the training records present quoted source
+        # material.
+        if best < RAG_MIN_SCORE:
+            # Nothing in Marc's writing is close to this question. Say so rather
+            # than letting the model answer from whatever the top k happened to
+            # be, which is how a confident, invented answer gets made.
+            user = (f"<context>\n{context}\n</context>\n\n"
+                    f"NOTE: nothing in the context above is a close match for this "
+                    f"question, so it is probably not something covered by Marc's "
+                    f"own writing. Unless the context genuinely answers it, say "
+                    f"plainly that it is not something you have information about, "
+                    f"and offer something you do cover instead. Do not guess, and "
+                    f"do not answer from general knowledge.\n\n"
+                    f"The question: {message}")
+        else:
+            user = (f"<context>\n{context}\n</context>\n\n"
+                    f"Using the context above only where it is relevant, answer: {message}")
     messages.append({"role": "user", "content": user})
     return messages
 

@@ -179,8 +179,17 @@ def main() -> int:
               tab.js("document.documentElement.dataset.theme") == "light")
         check("the greeting is rendered", "chatMCD" in (tab.js(
             "document.querySelector('#transcript .msg.bot .md').textContent") or ""))
-        check("five preset chips", tab.js(
-            "document.querySelectorAll('#chips .chip').length") == 5)
+        # Three rows' worth, mixing professional and light-hearted. Asserted
+        # against the server's own list rather than a hardcoded number, so
+        # adding a preset cannot silently fail to reach the page.
+        n_presets = len(json.loads(urllib.request.urlopen(
+            args.base + "/api/presets", timeout=20).read())["presets"])
+        check(f"all {n_presets} preset chips render", tab.js(
+            "document.querySelectorAll('#chips .chip').length") == n_presets,
+            f"page shows {tab.js("document.querySelectorAll('#chips .chip').length")}")
+        check("the chips wrap onto more than one row", tab.js(
+            "(() => {const c=[...document.querySelectorAll('#chips .chip')];"
+            " return new Set(c.map(e => Math.round(e.getBoundingClientRect().top))).size;})()") >= 2)
         check("the first-run hint is shown", tab.js(
             "!!document.getElementById('hint')"))
 
@@ -232,21 +241,60 @@ def main() -> int:
         # as "1." six times.
         fixture = ("**bold** here\n\n- one\n- two\n\n"
                    "1. first\n\n2. second\n   wrapped on\n\n3. third\n\n"
-                   "after the list\n\n`code` and <script>x</script>")
+                   "after the list\n\n-\n\n"
+                   # Nested: bullets under numbered steps, which is what the
+                   # model writes for "what has he built, and what does each do".
+                   "1. First tool\n   - does one thing\n   - and another\n"
+                   "2. Second tool\n   - does a third\n\n"
+                   "## A heading\n\n"
+                   "| Role | Where |\n|---|---:|\n| CSO | Elora |\n| Scientist | Oxford |\n\n"
+                   "> the one thing to remember\n\n"
+                   "---\n\n"
+                   "`code` and <script>x</script>")
         rendered = tab.js(f"window.chatmcdRenderMarkdown({json.dumps(fixture)})") or ""
         check("the renderer is reachable", bool(rendered), repr(rendered)[:120])
         check("**bold** became <strong>", "<strong>bold</strong>" in rendered, rendered[:160])
         check("a bullet list became <ul><li>",
               "<ul>" in rendered and "<li>one</li>" in rendered, rendered[:160])
+        # Asserted on the exact markup rather than on a count: the fixture now
+        # contains two deliberate numbered lists, so counting <ol> would pass
+        # for the wrong reason once and fail for the wrong reason after.
         check("a loose numbered list stays ONE <ol>",
-              rendered.count("<ol>") == 1 and rendered.count("</ol>") == 1,
-              f"{rendered.count('<ol>')} <ol> opened: {rendered[:220]}")
+              "<ol><li>first</li><li>second wrapped on</li><li>third</li></ol>"
+              in rendered, rendered[:300])
         check("all three numbered items are in it",
-              rendered.count("<li>") == 5, f"{rendered.count('<li>')} <li>: {rendered[:220]}")
+              rendered.count("<li>") == 10, f"{rendered.count('<li>')} <li>: {rendered[:220]}")
+        check("nested bullets do not break the numbered list they sit under",
+              "<li>First tool<ul><li>does one thing</li><li>and another</li></ul></li>"
+              in rendered, rendered[:700])
+        check("the nested list closes before the next numbered item",
+              "</ul></li><li>Second tool<ul>" in rendered, rendered[:700])
         check("a wrapped line joins its item, not a new block",
               "<li>second wrapped on</li>" in rendered, rendered[:220])
         check("a real paragraph after the list still closes it",
               "</ol><p>after the list</p>" in rendered, rendered[-220:])
+        check("a table became a real <table>",
+              "<table>" in rendered and "<th>Role</th>" in rendered
+              and rendered.count("<tr>") == 3, rendered[-400:])
+        check("the table scrolls in its own box, not the message",
+              '<div class="md-table">' in rendered, rendered[-300:])
+        check("a right-aligned column keeps its alignment",
+              'style="text-align:right"' in rendered, rendered[-400:])
+        check("a heading became a real heading, not a bold paragraph",
+              '<h4 class="md-h">A heading</h4>' in rendered, rendered[-500:])
+        check("a > line became a callout",
+              '<div class="md-note">the one thing to remember</div>' in rendered,
+              rendered[-300:])
+        check("--- became a rule, and did not eat the table",
+              "<hr>" in rendered and rendered.count("<table>") == 1, rendered[-260:])
+        check("every list opened is closed",
+              rendered.count("<ol>") == rendered.count("</ol>")
+              and rendered.count("<ul>") == rendered.count("</ul>")
+              and rendered.count("<li>") == rendered.count("</li>"),
+              f"ol {rendered.count('<ol>')}/{rendered.count('</ol>')} "
+              f"ul {rendered.count('<ul>')}/{rendered.count('</ul>')}")
+        check("a bare list marker leaves no stray dash",
+              "<p>-</p>" not in rendered and "<li></li>" not in rendered, rendered[:400])
         check("`code` became <code>", "<code>code</code>" in rendered, rendered[:160])
         check("a <script> tag from the model is escaped",
               "<script" not in rendered.lower() and "&lt;script" in rendered.lower(),

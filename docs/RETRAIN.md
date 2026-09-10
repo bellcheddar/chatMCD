@@ -13,6 +13,27 @@ Everything below runs on the Mac.
 
 ---
 
+## The daily digest starts the loop for you
+
+`scripts/daily_digest.py` runs from cron on the droplet at 07:15 UTC and emails
+the day's questions, the answers they got, roughly where each visitor was, on
+what device, and how long each took. Anything it marks **declined** is a question
+chatMCD could not answer, which is exactly the list this loop exists to shorten.
+
+```bash
+python3 scripts/daily_digest.py --dry-run      # write the HTML, send nothing
+python3 scripts/daily_digest.py --hours 168    # a week, on demand
+```
+
+It posts to a transactional email API rather than using SMTP, because
+DigitalOcean blocks every outbound SMTP port on this droplet: 25, 465, 587 and
+2525 all refuse a TCP connection, while port 443 is open. Set `RESEND_API_KEY`
+and `DIGEST_TO` in `/opt/chatmcd/.env`. Visitor addresses are resolved to a
+country and city at digest time only, in one batch call, for the few addresses
+that actually asked something.
+
+---
+
 ## The loop, in full
 
 ```bash

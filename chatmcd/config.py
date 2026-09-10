@@ -83,18 +83,57 @@ class Config:
 
 
 # The five preset chips, served from /api/presets so no front end hardcodes them.
+# Three rows' worth on a desktop, and they wrap to as many as they need on a
+# phone. Deliberately mixed: a visitor who only ever sees the serious ones learns
+# what Marc has done, and one who taps a light-hearted one learns what he is like.
+# Row 1 is the professional opener, row 2 the substance, row 3 the character.
 PRESETS = [
+    # -- the opener ---------------------------------------------------------
     {"id": "resume", "label": "Marc's quick résumé",
      "prompt": "Give me Marc's quick résumé."},
-    {"id": "fun", "label": "Fun facts about Marc",
-     "prompt": "Tell me some fun facts about Marc."},
     {"id": "pubs", "label": "Publications & structures",
      "prompt": "Tell me about Marc's publications and protein structures."},
-    {"id": "leadership", "label": "Leadership style",
-     "prompt": "How would you describe Marc's leadership style?"},
     {"id": "elora", "label": "What is Elora Therapeutics?",
      "prompt": "What is Elora Therapeutics?"},
+    {"id": "leadership", "label": "Leadership style",
+     "prompt": "How would you describe Marc's leadership style?"},
+    {"id": "hire", "label": "Why hire Marc?",
+     "prompt": "What would Marc bring to a drug discovery team, and what is he "
+               "best at?"},
+
+    # -- the substance ------------------------------------------------------
+    {"id": "career", "label": "Career so far",
+     "prompt": "Walk me through Marc's career, company by company, and what he "
+               "did at each."},
+    {"id": "expertise", "label": "Technical expertise",
+     "prompt": "What are Marc's main technical skills and methods?"},
+    {"id": "patents", "label": "Patents & INDs",
+     "prompt": "What patents is Marc named on, and what has he taken into the "
+               "clinic?"},
+    {"id": "ai", "label": "AI in structural biology",
+     "prompt": "What is Marc's view on AI and machine learning in structural "
+               "biology and drug discovery?"},
+    {"id": "plastic", "label": "Plastic-eating enzymes",
+     "prompt": "Explain the plastic-degrading enzyme work Marc is doing, and why "
+               "it matters for human health."},
+
+    # -- the character ------------------------------------------------------
+    {"id": "fun", "label": "Fun facts about Marc",
+     "prompt": "Tell me some fun facts about Marc."},
+    {"id": "boltzmaker", "label": "Why 'BoltzMaker'?",
+     "prompt": "Why is Marc's tool called BoltzMaker?"},
+    {"id": "apps", "label": "What has he built?",
+     "prompt": "What apps and software has Marc built, and what does each one do?"},
+    {"id": "blog", "label": "What does he write about?",
+     "prompt": "What kinds of things does Marc write about on his blog?"},
+    {"id": "sixcs", "label": "The 6 C's",
+     "prompt": "What are Marc's 6 C's, and what does each one mean to him?"},
 ]
+
+# How many of the above the compact widget shows. Its chip strip is two rows
+# tall, so the rest would be rendered and then hidden by CSS rather than simply
+# not offered.
+EMBED_PRESETS = 5
 
 # Header link row.
 #

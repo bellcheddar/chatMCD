@@ -2,7 +2,7 @@
 
 > **Ask a question about Marc C. Deller and get a straight answer, drawn from his own writing.**
 
-[![live](https://img.shields.io/badge/live-chatmcd.mdeller.com-00d084?logo=icloud&logoColor=white)](https://chatmcd.mdeller.com) ![python](https://img.shields.io/badge/python-3.12.3-3776AB?logo=python&logoColor=white) ![flask](https://img.shields.io/badge/flask-3.1.3-000000?logo=flask&logoColor=white) ![gunicorn](https://img.shields.io/badge/gunicorn-26.2.0-499848?logo=gunicorn&logoColor=white) ![nginx](https://img.shields.io/badge/nginx-1.24.0-009639?logo=nginx&logoColor=white) ![sqlite](https://img.shields.io/badge/sqlite-3.45.1-003B57?logo=sqlite&logoColor=white) ![gradio](https://img.shields.io/badge/gradio-5.49.1-F97316?logo=gradio&logoColor=white) ![model](https://img.shields.io/badge/model-Qwen3--8B-467FF7) ![hosting](https://img.shields.io/badge/inference-ZeroGPU-FFD21E?logo=huggingface&logoColor=black) ![embeddings](https://img.shields.io/badge/embeddings-all--MiniLM--L6--v2-9b51e0) ![pytest](https://img.shields.io/badge/pytest-23%20passing-0A9EDC?logo=pytest&logoColor=white) ![browser](https://img.shields.io/badge/browser%20checks-38%20passing-00897B) ![wordpress](https://img.shields.io/badge/plugin%20tests-48%20passing-21759B?logo=wordpress&logoColor=white) ![licence](https://img.shields.io/badge/licence-MIT-lightgrey) ![author](https://img.shields.io/badge/author-Marc%20C.%20Deller%2C%20D.Phil.-1C244B)
+[![live](https://img.shields.io/badge/live-chatmcd.mdeller.com-00d084?logo=icloud&logoColor=white)](https://chatmcd.mdeller.com) ![python](https://img.shields.io/badge/python-3.12.3-3776AB?logo=python&logoColor=white) ![flask](https://img.shields.io/badge/flask-3.1.3-000000?logo=flask&logoColor=white) ![gunicorn](https://img.shields.io/badge/gunicorn-26.2.0-499848?logo=gunicorn&logoColor=white) ![nginx](https://img.shields.io/badge/nginx-1.24.0-009639?logo=nginx&logoColor=white) ![sqlite](https://img.shields.io/badge/sqlite-3.45.1-003B57?logo=sqlite&logoColor=white) ![gradio](https://img.shields.io/badge/gradio-5.49.1-F97316?logo=gradio&logoColor=white) ![model](https://img.shields.io/badge/model-Qwen3--8B-467FF7) ![hosting](https://img.shields.io/badge/inference-ZeroGPU-FFD21E?logo=huggingface&logoColor=black) ![embeddings](https://img.shields.io/badge/embeddings-all--MiniLM--L6--v2-9b51e0) ![pytest](https://img.shields.io/badge/pytest-55%20passing-0A9EDC?logo=pytest&logoColor=white) ![browser](https://img.shields.io/badge/browser%20checks-49%20passing-00897B) ![wordpress](https://img.shields.io/badge/plugin%20tests-48%20passing-21759B?logo=wordpress&logoColor=white) ![licence](https://img.shields.io/badge/licence-MIT-lightgrey) ![author](https://img.shields.io/badge/author-Marc%20C.%20Deller%2C%20D.Phil.-1C244B)
 
 <table>
 <tr>
@@ -28,7 +28,11 @@ Three pieces, and the middle one is the important one.
 2. **It finds the relevant writing.** Every question is compared against a library of short question-and-answer pairs plus longer passages from Marc's papers and blog. The best matches are pulled out.
 3. **A language model writes the answer** using only those passages, and streams it back a word at a time.
 
-Step 2 is what stops it making things up. The model is not asked "what do you know about Marc Deller"; it is handed the relevant paragraphs and asked to answer from them. If nothing relevant comes back, the honest answer is "I do not know", and that is what it gives.
+Step 2 is what stops it making things up. The model is not asked "what do you know about Marc Deller"; it is handed the relevant paragraphs and asked to answer from them. And when the best match is a poor one, it is told so explicitly and asked to decline rather than answer from whatever happened to come back: that is the difference between "I do not know" and a confident invention.
+
+**A daily email** reports what visitors asked, what they were told, roughly where they were, on what device and how long it took. It is how the writing gets better: the questions it could not answer are the list of what to write next.
+
+> **What is stored.** Running this yourself means storing visitors' IP addresses. They stay in a SQLite file on your own server, are resolved to a city and country only when the digest is built, and email addresses and phone numbers are stripped from every question and answer before either is written. Set `LOG_QUESTIONS=0` to record nothing, or `GEO_LOOKUP=0` to keep addresses off the network entirely. If you deploy this, say so wherever your site says what it collects.
 
 **Why matching questions to questions works so well.** The library is built mostly from short question-and-answer pairs rather than long prose. A question like "what is Elora Therapeutics?" looks, mathematically, far more like another short question than it does like a page of a scientific paper, so the match is much sharper. Longer passages are kept alongside them, because they are the only way to reach the long tail of blog posts that the short pairs do not cover.
 
@@ -41,12 +45,18 @@ Measured on a fixed set of 50 questions in six categories, run end to end throug
 | Category | What it tests | Score |
 |---|---|---:|
 | Facts | Roles, employers, publication and structure counts, qualifications | 16/17 |
+| Depth | Detailed scientific explanations | 8/8 |
 | Personality | Style, philosophy, the stories behind project names | 8/8 |
 | Web | Blog posts, site pages, the other apps | 8/8 |
+| Manners | Off-topic requests: it must redirect, not comply | 5/5 |
 | Honesty | Things the writing genuinely does not cover: it must decline | 4/4 |
-| Manners | Off-topic requests: it must redirect, not comply | 4/5 |
-| Depth | Detailed scientific explanations | 5/8 |
-| **Overall** | | **45/50 (90%)** |
+| **Overall** | | **49/50 (98%)** |
+
+The single miss is the name of a doctoral supervisor, which is simply not in the
+writing yet. Earlier runs of the same 50 questions scored 45 and 46, so treat
+90-98% as the honest range rather than 98% as a settled figure: one run is one
+run, and the model samples. What moved it was better example refusals and asking
+for more structured answers, both of which are in the To Do list below.
 
 A typical answer starts arriving in about **5 to 7 seconds**.
 
@@ -103,8 +113,12 @@ Everything is set in `.env`. The ones that matter:
 | `HF_SPACE_ID` | Which Space to call |
 | `KEEPWARM_ENABLED` | Pings the Space periodically so nobody lands on a cold start |
 | `RATE_LIMIT` | Requests allowed per visitor, for example `"20 per minute"` |
-| `LOG_QUESTIONS` | Whether to record which questions get asked. Email addresses and phone numbers are stripped before anything is written |
+| `LOG_QUESTIONS` | Whether to record what gets asked. Stores the question, the answer, the visitor's address, browser and how long it took. Email addresses and phone numbers are stripped from both the question and the answer before anything is written |
 | `MOCK_SPACE` | `1` serves canned answers instead of calling the model |
+| `DIGEST_TO` | Where the daily usage digest is emailed |
+| `MAIL_PROVIDER` | `resend` (default) or `mailgun`. Not SMTP: every outbound SMTP port is blocked on this droplet |
+| `RESEND_API_KEY` | The key for that provider |
+| `GEO_LOOKUP` | `1` resolves visitor addresses to a country and city, once per digest |
 
 ## 🌐 The API
 
@@ -138,10 +152,10 @@ Full instructions in [`docs/EMBED.md`](docs/EMBED.md).
 ## 🧪 Tests
 
 ```bash
-.venv/bin/python3 -m pytest chatmcd/ eval/     # 18 tests
-.venv-gradio/bin/python3 -m pytest space/      # 5 tests, needs gradio
-php wordpress/tests/test_plugin.php            # 48 tests
-python3 scripts/browser_check.py               # 38 checks in a real browser
+.venv/bin/python3 -m pytest chatmcd/ eval/ scripts/   # 50 tests
+.venv-gradio/bin/python3 -m pytest space/            # 5 tests, needs gradio
+php wordpress/tests/test_plugin.php                  # 48 tests
+python3 scripts/browser_check.py                     # 49 checks in a real browser
 ```
 
 The browser checks drive a real Chrome over the DevTools protocol rather than taking a screenshot and hoping: they cover streaming, the markdown rendering, the copy and voting buttons, the light and dark themes, the widget, and a clean console.
@@ -158,7 +172,7 @@ chatMCD/
 ├── space/              the Hugging Face Space that does the answering
 ├── wordpress/          the plugin and its tests
 ├── eval/               the scoring harness
-├── scripts/            index build, browser checks, load test, question digest
+├── scripts/            index build, browser checks, load test, daily email digest
 ├── deploy/             gunicorn, systemd, nginx, deploy script
 ├── training/           the scripts that build the searchable library
 └── docs/               embedding guide, model notes, screenshots
@@ -172,10 +186,14 @@ Roadmap for chatMCD, newest first. Suggestions welcome.
 - [x] **Answers from the writing, not from the model's memory.** Relevant passages are retrieved for every question and the model answers from those. Measured at 45/50 on a fixed 50-question set, including 4/4 on questions it is supposed to refuse.
 - [x] **Load tested.** Twelve simultaneous conversations stay inside a ten second budget with no failures, and it queues rather than erroring above that.
 - [x] **Embeddable anywhere on Marc's sites.** A compact widget plus a WordPress plugin with a shortcode, a block and a settings screen.
-- [x] **Tested where it actually runs.** The published API contract, the failure handling, the scoring, the plugin, and 38 checks driving a real browser.
-- [ ] **Stop it writing poems and code.** The one weak spot. Asked for a sorting function it writes one, despite being told not to. The redirect examples it needs are missing from the library rather than being ignored, so the fix is more example refusals, not more instructions.
-- [ ] **Say so when nothing relevant is found.** Right now an empty search still gets an answer attempt. It should decline instead: this is the main remaining lever on honesty.
-- [ ] **Feed the questions back in.** `scripts/digest.py` groups what visitors actually asked by how often they asked it. The long tail is a list of things the writing does not yet cover.
+- [x] **Tested where it actually runs.** The published API contract, the failure handling, the scoring, the plugin, and 49 checks driving a real browser.
+- [x] **Richer answers.** Every answer opens with plain prose, and longer ones then use tables, headings, callouts, bold terms and nested lists. The renderer gained real tables (scrolling in their own box so a wide one never widens the message), proper headings, callouts and rules, all styled from the existing tokens so they follow the light and dark themes without a second definition.
+- [x] **Fifteen suggested questions, in three rows.** A mix of the professional and the light-hearted, so a visitor learns what Marc has done or what he is like depending on which they tap.
+- [x] **Marc's own photo as the tab icon.** Cropped to the alpha bounding box so the head is centred, with a flattened Apple touch icon, because iOS ignores transparency and would otherwise composite it onto a black square.
+- [x] **Daily usage digest by email.** `scripts/daily_digest.py` sends what was asked, what was answered, where the visitor was, on what device and how long it took, from cron. DigitalOcean blocks every outbound SMTP port on this droplet (25, 465, 587 and 2525 all refuse a connection), so it posts to a transactional email API over 443 instead.
+- [x] **Stopped it writing poems and code.** Asked for a sorting function it used to write one. The cause was measured rather than guessed: the nearest refusal example scored 0.237 against the question, below five of Marc's coding tools, so retrieval handed the model a context that invited a code answer. Twelve explicit refusals for the "write me X" family took that match to **0.813**, and it now declines cleanly.
+- [x] **Says so when nothing relevant is found.** Below a best-match score of 0.55 the model is told the context is thin and asked to decline rather than answer from it. The threshold is measured, and the measurement is the interesting part: the two distributions **overlap**, with answerable questions bottoming out at 0.603 and must-decline questions reaching 0.657, so no threshold separates them cleanly. 0.55 sits below every answerable question with room to spare and still catches the clearest misses. It is a hint to the model, not a gate.
+- [ ] **Feed the questions back in.** The daily digest surfaces what visitors actually asked; `scripts/digest.py` groups it by frequency. Open because it is a habit rather than a build step: read the long tail, and write the missing answers into the library.
 
 ## 📄 Licence
 

@@ -5,7 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>{% block title %}chatMCD — ask about Marc C. Deller{% endblock %}</title>
 {% block head_meta %}{% endblock %}
-<link rel="icon" href="{{ asset('img/favicon.svg') }}" type="image/svg+xml">
+{# The tab icon is Marc's own photo. The .ico carries 16/32/48 for pinned
+   tabs and older browsers; the PNG is what modern ones pick up. Both keep
+   their transparency so the cutout sits correctly on light or dark chrome,
+   while the Apple touch icon is flattened, because iOS ignores alpha and
+   would otherwise composite the head onto a black square. #}
+<link rel="icon" href="{{ asset('img/favicon.ico') }}" sizes="any">
+<link rel="icon" href="{{ asset('img/favicon-32.png') }}" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="{{ asset('img/apple-touch-icon.png') }}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
