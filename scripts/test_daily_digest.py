@@ -221,3 +221,24 @@ def test_a_real_user_agent_is_sent(monkeypatch):
     dd.send("s", "b", "to@example.com", "from@example.com")
     ua = sent["headers"].get("User-agent") or sent["headers"].get("user-agent", "")
     assert ua and "python-urllib" not in ua.lower(), ua
+
+
+def test_a_reply_to_is_sent_when_configured(monkeypatch):
+    """The From has to sit on a verified domain, which need not be the address
+    Marc actually reads; reply-to is what closes that gap."""
+    import json as _json
+    sent = _capture(monkeypatch)
+    monkeypatch.setenv("MAIL_PROVIDER", "resend")
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+    dd.send("s", "b", "to@x.com", "chatMCD <marc@mdeller.com>", "marc@marcdeller.com")
+    assert _json.loads(sent["body"])["reply_to"] == "marc@marcdeller.com"
+
+
+def test_no_reply_to_key_is_sent_when_unset(monkeypatch):
+    """An explicit null would be rejected; the key must simply be absent."""
+    import json as _json
+    sent = _capture(monkeypatch)
+    monkeypatch.setenv("MAIL_PROVIDER", "resend")
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+    dd.send("s", "b", "to@x.com", "from@x.com")
+    assert "reply_to" not in _json.loads(sent["body"])

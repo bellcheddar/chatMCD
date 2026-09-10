@@ -58,7 +58,7 @@
 <blockquote>
 <p><strong>Ask a question about Marc C. Deller and get a straight answer, drawn from his own writing.</strong></p>
 </blockquote>
-<p><a href="https://chatmcd.mdeller.com"><img alt="live" src="https://img.shields.io/badge/live-chatmcd.mdeller.com-00d084?logo=icloud&amp;logoColor=white"></a> <img alt="python" src="https://img.shields.io/badge/python-3.12.3-3776AB?logo=python&amp;logoColor=white"> <img alt="flask" src="https://img.shields.io/badge/flask-3.1.3-000000?logo=flask&amp;logoColor=white"> <img alt="gunicorn" src="https://img.shields.io/badge/gunicorn-26.2.0-499848?logo=gunicorn&amp;logoColor=white"> <img alt="nginx" src="https://img.shields.io/badge/nginx-1.24.0-009639?logo=nginx&amp;logoColor=white"> <img alt="sqlite" src="https://img.shields.io/badge/sqlite-3.45.1-003B57?logo=sqlite&amp;logoColor=white"> <img alt="gradio" src="https://img.shields.io/badge/gradio-5.49.1-F97316?logo=gradio&amp;logoColor=white"> <img alt="model" src="https://img.shields.io/badge/model-Qwen3--8B-467FF7"> <img alt="hosting" src="https://img.shields.io/badge/inference-ZeroGPU-FFD21E?logo=huggingface&amp;logoColor=black"> <img alt="embeddings" src="https://img.shields.io/badge/embeddings-all--MiniLM--L6--v2-9b51e0"> <img alt="pytest" src="https://img.shields.io/badge/pytest-61%20passing-0A9EDC?logo=pytest&amp;logoColor=white"> <img alt="browser" src="https://img.shields.io/badge/browser%20checks-49%20passing-00897B"> <img alt="wordpress" src="https://img.shields.io/badge/plugin%20tests-48%20passing-21759B?logo=wordpress&amp;logoColor=white"> <img alt="licence" src="https://img.shields.io/badge/licence-MIT-lightgrey"> <img alt="author" src="https://img.shields.io/badge/author-Marc%20C.%20Deller%2C%20D.Phil.-1C244B"></p>
+<p><a href="https://chatmcd.mdeller.com"><img alt="live" src="https://img.shields.io/badge/live-chatmcd.mdeller.com-00d084?logo=icloud&amp;logoColor=white"></a> <img alt="python" src="https://img.shields.io/badge/python-3.12.3-3776AB?logo=python&amp;logoColor=white"> <img alt="flask" src="https://img.shields.io/badge/flask-3.1.3-000000?logo=flask&amp;logoColor=white"> <img alt="gunicorn" src="https://img.shields.io/badge/gunicorn-26.2.0-499848?logo=gunicorn&amp;logoColor=white"> <img alt="nginx" src="https://img.shields.io/badge/nginx-1.24.0-009639?logo=nginx&amp;logoColor=white"> <img alt="sqlite" src="https://img.shields.io/badge/sqlite-3.45.1-003B57?logo=sqlite&amp;logoColor=white"> <img alt="gradio" src="https://img.shields.io/badge/gradio-5.49.1-F97316?logo=gradio&amp;logoColor=white"> <img alt="model" src="https://img.shields.io/badge/model-Qwen3--8B-467FF7"> <img alt="hosting" src="https://img.shields.io/badge/inference-ZeroGPU-FFD21E?logo=huggingface&amp;logoColor=black"> <img alt="embeddings" src="https://img.shields.io/badge/embeddings-all--MiniLM--L6--v2-9b51e0"> <img alt="pytest" src="https://img.shields.io/badge/pytest-63%20passing-0A9EDC?logo=pytest&amp;logoColor=white"> <img alt="browser" src="https://img.shields.io/badge/browser%20checks-49%20passing-00897B"> <img alt="wordpress" src="https://img.shields.io/badge/plugin%20tests-48%20passing-21759B?logo=wordpress&amp;logoColor=white"> <img alt="licence" src="https://img.shields.io/badge/licence-MIT-lightgrey"> <img alt="author" src="https://img.shields.io/badge/author-Marc%20C.%20Deller%2C%20D.Phil.-1C244B"></p>
 <table class="emd-info-table">
 <tr>
 <td>🌐 <b>App</b></td><td><a href="https://chatmcd.mdeller.com" target="_blank" rel="noopener noreferrer">chatmcd.mdeller.com</a></td>
@@ -251,6 +251,14 @@ cp .env.example .env          # then fill in HF_TOKEN
 <td data-label="What it does">The key for that provider</td>
 </tr>
 <tr>
+<td data-label="Setting"><code>DIGEST_FROM</code></td>
+<td data-label="What it does">The From address. Must sit on a domain the provider has verified</td>
+</tr>
+<tr>
+<td data-label="Setting"><code>DIGEST_REPLY_TO</code></td>
+<td data-label="What it does">Where replies go, which need not be the From address</td>
+</tr>
+<tr>
 <td data-label="Setting"><code>GEO_LOOKUP</code></td>
 <td data-label="What it does"><code>1</code> resolves visitor addresses to a country and city, once per digest</td>
 </tr>
@@ -305,7 +313,7 @@ cp .env.example .env          # then fill in HF_TOKEN
 </code></pre>
 <p>Full instructions in <a href="docs/EMBED.md"><code>docs/EMBED.md</code></a>.</p>
 <h2>🧪 Tests</h2>
-<pre><code class="language-bash">.venv/bin/python3 -m pytest chatmcd/ eval/ scripts/   # 56 tests
+<pre><code class="language-bash">.venv/bin/python3 -m pytest chatmcd/ eval/ scripts/   # 58 tests
 .venv-gradio/bin/python3 -m pytest space/            # 5 tests, needs gradio
 php wordpress/tests/test_plugin.php                  # 48 tests
 python3 scripts/browser_check.py                     # 49 checks in a real browser

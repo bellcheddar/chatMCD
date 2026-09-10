@@ -2,7 +2,7 @@
 
 > **Ask a question about Marc C. Deller and get a straight answer, drawn from his own writing.**
 
-[![live](https://img.shields.io/badge/live-chatmcd.mdeller.com-00d084?logo=icloud&logoColor=white)](https://chatmcd.mdeller.com) ![python](https://img.shields.io/badge/python-3.12.3-3776AB?logo=python&logoColor=white) ![flask](https://img.shields.io/badge/flask-3.1.3-000000?logo=flask&logoColor=white) ![gunicorn](https://img.shields.io/badge/gunicorn-26.2.0-499848?logo=gunicorn&logoColor=white) ![nginx](https://img.shields.io/badge/nginx-1.24.0-009639?logo=nginx&logoColor=white) ![sqlite](https://img.shields.io/badge/sqlite-3.45.1-003B57?logo=sqlite&logoColor=white) ![gradio](https://img.shields.io/badge/gradio-5.49.1-F97316?logo=gradio&logoColor=white) ![model](https://img.shields.io/badge/model-Qwen3--8B-467FF7) ![hosting](https://img.shields.io/badge/inference-ZeroGPU-FFD21E?logo=huggingface&logoColor=black) ![embeddings](https://img.shields.io/badge/embeddings-all--MiniLM--L6--v2-9b51e0) ![pytest](https://img.shields.io/badge/pytest-61%20passing-0A9EDC?logo=pytest&logoColor=white) ![browser](https://img.shields.io/badge/browser%20checks-49%20passing-00897B) ![wordpress](https://img.shields.io/badge/plugin%20tests-48%20passing-21759B?logo=wordpress&logoColor=white) ![licence](https://img.shields.io/badge/licence-MIT-lightgrey) ![author](https://img.shields.io/badge/author-Marc%20C.%20Deller%2C%20D.Phil.-1C244B)
+[![live](https://img.shields.io/badge/live-chatmcd.mdeller.com-00d084?logo=icloud&logoColor=white)](https://chatmcd.mdeller.com) ![python](https://img.shields.io/badge/python-3.12.3-3776AB?logo=python&logoColor=white) ![flask](https://img.shields.io/badge/flask-3.1.3-000000?logo=flask&logoColor=white) ![gunicorn](https://img.shields.io/badge/gunicorn-26.2.0-499848?logo=gunicorn&logoColor=white) ![nginx](https://img.shields.io/badge/nginx-1.24.0-009639?logo=nginx&logoColor=white) ![sqlite](https://img.shields.io/badge/sqlite-3.45.1-003B57?logo=sqlite&logoColor=white) ![gradio](https://img.shields.io/badge/gradio-5.49.1-F97316?logo=gradio&logoColor=white) ![model](https://img.shields.io/badge/model-Qwen3--8B-467FF7) ![hosting](https://img.shields.io/badge/inference-ZeroGPU-FFD21E?logo=huggingface&logoColor=black) ![embeddings](https://img.shields.io/badge/embeddings-all--MiniLM--L6--v2-9b51e0) ![pytest](https://img.shields.io/badge/pytest-63%20passing-0A9EDC?logo=pytest&logoColor=white) ![browser](https://img.shields.io/badge/browser%20checks-49%20passing-00897B) ![wordpress](https://img.shields.io/badge/plugin%20tests-48%20passing-21759B?logo=wordpress&logoColor=white) ![licence](https://img.shields.io/badge/licence-MIT-lightgrey) ![author](https://img.shields.io/badge/author-Marc%20C.%20Deller%2C%20D.Phil.-1C244B)
 
 <table>
 <tr>
@@ -118,6 +118,8 @@ Everything is set in `.env`. The ones that matter:
 | `DIGEST_TO` | Where the daily usage digest is emailed |
 | `MAIL_PROVIDER` | `resend` (default) or `mailgun`. Not SMTP: every outbound SMTP port is blocked on this droplet |
 | `RESEND_API_KEY` | The key for that provider |
+| `DIGEST_FROM` | The From address. Must sit on a domain the provider has verified |
+| `DIGEST_REPLY_TO` | Where replies go, which need not be the From address |
 | `GEO_LOOKUP` | `1` resolves visitor addresses to a country and city, once per digest |
 
 ## 🌐 The API
@@ -152,7 +154,7 @@ Full instructions in [`docs/EMBED.md`](docs/EMBED.md).
 ## 🧪 Tests
 
 ```bash
-.venv/bin/python3 -m pytest chatmcd/ eval/ scripts/   # 56 tests
+.venv/bin/python3 -m pytest chatmcd/ eval/ scripts/   # 58 tests
 .venv-gradio/bin/python3 -m pytest space/            # 5 tests, needs gradio
 php wordpress/tests/test_plugin.php                  # 48 tests
 python3 scripts/browser_check.py                     # 49 checks in a real browser

@@ -291,7 +291,15 @@ def build_html(qs: list[dict], votes: dict, geo: dict, hours: float,
 UA = "chatMCD-digest/1.0 (+https://chatmcd.mdeller.com)"
 
 
-def send(subject: str, body: str, to: str, sender: str) -> bool:
+def send(subject: str, body: str, to: str, sender: str,
+         reply_to: str = "") -> bool:
+    """Post the digest to the provider.
+
+    reply_to matters because the From address has to live on a domain the
+    provider has verified, which is not necessarily the address you actually
+    read. Sending as marc@mdeller.com with a reply-to of marc@marcdeller.com
+    means the mail looks right and a reply still lands somewhere real.
+    """
     provider = os.environ.get("MAIL_PROVIDER", "resend").lower()
 
     if provider == "resend":
@@ -301,8 +309,9 @@ def send(subject: str, body: str, to: str, sender: str) -> bool:
             return False
         req = urllib.request.Request(
             "https://api.resend.com/emails",
-            data=json.dumps({"from": sender, "to": [to],
-                             "subject": subject, "html": body}).encode(),
+            data=json.dumps({k: v for k, v in {
+                "from": sender, "to": [to], "subject": subject, "html": body,
+                "reply_to": reply_to or None}.items() if v is not None}).encode(),
             headers={"Authorization": f"Bearer {key}",
                      "Content-Type": "application/json", "User-Agent": UA})
     elif provider == "mailgun":
@@ -318,8 +327,9 @@ def send(subject: str, body: str, to: str, sender: str) -> bool:
         auth = b64encode(f"api:{key}".encode()).decode()
         req = urllib.request.Request(
             f"https://api.mailgun.net/v3/{domain}/messages",
-            data=urllib.parse.urlencode({"from": sender, "to": to,
-                                         "subject": subject, "html": body}).encode(),
+            data=urllib.parse.urlencode({k: v for k, v in {
+                "from": sender, "to": to, "subject": subject, "html": body,
+                "h:Reply-To": reply_to or None}.items() if v is not None}).encode(),
             headers={"Authorization": f"Basic {auth}", "User-Agent": UA})
     else:
         print(f"MAIL_PROVIDER={provider}; nothing sent", file=sys.stderr)
@@ -381,6 +391,7 @@ def main() -> int:
     ap.add_argument("--hours", type=float, default=24)
     ap.add_argument("--to", default=None)
     ap.add_argument("--from", dest="sender", default=None)
+    ap.add_argument("--reply-to", default=None)
     ap.add_argument("--subject", default="")
     ap.add_argument("--dry-run", action="store_true",
                     help="write the HTML to a file and send nothing")
@@ -397,6 +408,7 @@ def main() -> int:
     args.to = args.to or os.environ.get("DIGEST_TO", "")
     args.sender = args.sender or os.environ.get(
         "DIGEST_FROM", "chatMCD <onboarding@resend.dev>")
+    args.reply_to = args.reply_to or os.environ.get("DIGEST_REPLY_TO", "")
 
     qs, votes = rows(args.db, args.hours)
     print(f"{len(qs)} questions in the last {args.hours:.0f}h")
@@ -422,7 +434,7 @@ def main() -> int:
     if not args.to:
         print("DIGEST_TO is not set; nothing sent", file=sys.stderr)
         return 1
-    return 0 if send(subject, body, args.to, args.sender) else 1
+    return 0 if send(subject, body, args.to, args.sender, args.reply_to) else 1
 
 
 if __name__ == "__main__":
