@@ -38,7 +38,9 @@ import sqlite3
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
+from base64 import b64encode
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -281,6 +283,14 @@ def build_html(qs: list[dict], votes: dict, geo: dict, hours: float,
 </body></html>"""
 
 
+# Cloudflare sits in front of these APIs and blocks urllib's default
+# "Python-urllib/3.x" outright: the first real send came back HTTP 403 with
+# Cloudflare error 1010, "banned based on your browser's signature", which reads
+# like a rejected API key and is nothing of the sort. A plain, honest agent
+# string is enough.
+UA = "chatMCD-digest/1.0 (+https://chatmcd.mdeller.com)"
+
+
 def send(subject: str, body: str, to: str, sender: str) -> bool:
     provider = os.environ.get("MAIL_PROVIDER", "resend").lower()
 
@@ -294,28 +304,37 @@ def send(subject: str, body: str, to: str, sender: str) -> bool:
             data=json.dumps({"from": sender, "to": [to],
                              "subject": subject, "html": body}).encode(),
             headers={"Authorization": f"Bearer {key}",
-                     "Content-Type": "application/json"})
+                     "Content-Type": "application/json", "User-Agent": UA})
     elif provider == "mailgun":
-        import base64
-        import urllib.parse
+        # Both of these are imported at module level. Importing urllib.parse
+        # HERE made `urllib` a local name for the whole function, so the resend
+        # branch above -- which never runs this line -- died on
+        # UnboundLocalError the first time it was given a real key.
         key = os.environ.get("MAILGUN_API_KEY", "")
         domain = os.environ.get("MAILGUN_DOMAIN", "")
         if not (key and domain):
             print("MAILGUN_API_KEY / MAILGUN_DOMAIN not set; nothing sent", file=sys.stderr)
             return False
-        auth = base64.b64encode(f"api:{key}".encode()).decode()
+        auth = b64encode(f"api:{key}".encode()).decode()
         req = urllib.request.Request(
             f"https://api.mailgun.net/v3/{domain}/messages",
             data=urllib.parse.urlencode({"from": sender, "to": to,
                                          "subject": subject, "html": body}).encode(),
-            headers={"Authorization": f"Basic {auth}"})
+            headers={"Authorization": f"Basic {auth}", "User-Agent": UA})
     else:
         print(f"MAIL_PROVIDER={provider}; nothing sent", file=sys.stderr)
         return False
 
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
-            print(f"sent: HTTP {r.status}")
+            raw = r.read()
+            # A 200 means the provider ACCEPTED it, not that it arrived. Print
+            # the id so a bounce can be traced afterwards.
+            try:
+                mid = json.loads(raw).get("id") or json.loads(raw).get("message", "")
+            except Exception:  # noqa: BLE001
+                mid = ""
+            print(f"sent: HTTP {r.status}" + (f"  id={mid}" if mid else ""))
             return True
     except urllib.error.HTTPError as e:
         print(f"send failed: HTTP {e.code} {e.read()[:300].decode(errors='replace')}",

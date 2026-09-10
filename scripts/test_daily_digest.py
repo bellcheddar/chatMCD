@@ -132,3 +132,92 @@ def test_private_addresses_are_never_sent_for_geolocation(monkeypatch):
                         lambda *a, **k: (_ for _ in ()).throw(AssertionError("called")))
     assert dd.geolocate(["127.0.0.1", "10.0.0.5", "192.168.1.1", "::1"]) == {}
     assert sent == []
+
+
+# ------------------------------------------------------------------ the send
+# send() was the one function the tests never reached, because it needs an API
+# key. It therefore shipped with an UnboundLocalError: the mailgun branch did
+# `import urllib.parse` inside the function, which made `urllib` a local name
+# for the WHOLE function, so the resend branch -- which never executes that
+# line -- could not see the module-level import. It failed on the very first
+# real send. Both branches are now exercised with a fake transport.
+
+class _Resp:
+    status = 200
+
+    def read(self):
+        return b'{"id":"fake"}'
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def _capture(monkeypatch):
+    sent = {}
+
+    def fake_urlopen(req, timeout=None):
+        sent["url"] = req.full_url
+        sent["headers"] = {k.lower(): v for k, v in req.header_items()}
+        sent["body"] = req.data
+        return _Resp()
+
+    monkeypatch.setattr(dd.urllib.request, "urlopen", fake_urlopen)
+    return sent
+
+
+def test_resend_posts_to_the_right_endpoint(monkeypatch):
+    sent = _capture(monkeypatch)
+    monkeypatch.setenv("MAIL_PROVIDER", "resend")
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+    assert dd.send("subj", "<p>hi</p>", "to@example.com", "from@example.com")
+    assert sent["url"] == "https://api.resend.com/emails"
+    assert sent["headers"]["authorization"] == "Bearer re_test"
+    import json as _json
+    assert _json.loads(sent["body"])["to"] == ["to@example.com"]
+
+
+def test_mailgun_posts_to_the_right_endpoint(monkeypatch):
+    sent = _capture(monkeypatch)
+    monkeypatch.setenv("MAIL_PROVIDER", "mailgun")
+    monkeypatch.setenv("MAILGUN_API_KEY", "mg_test")
+    monkeypatch.setenv("MAILGUN_DOMAIN", "mail.example.com")
+    assert dd.send("subj", "<p>hi</p>", "to@example.com", "from@example.com")
+    assert sent["url"] == "https://api.mailgun.net/v3/mail.example.com/messages"
+    assert sent["headers"]["authorization"].startswith("Basic ")
+
+
+def test_a_missing_key_is_reported_rather_than_raising(monkeypatch):
+    monkeypatch.setenv("MAIL_PROVIDER", "resend")
+    monkeypatch.delenv("RESEND_API_KEY", raising=False)
+    assert dd.send("s", "b", "to@example.com", "from@example.com") is False
+
+
+def test_an_unknown_provider_sends_nothing(monkeypatch):
+    monkeypatch.setenv("MAIL_PROVIDER", "carrier-pigeon")
+    assert dd.send("s", "b", "to@example.com", "from@example.com") is False
+
+
+def test_an_http_error_is_reported_rather_than_raising(monkeypatch):
+    monkeypatch.setenv("MAIL_PROVIDER", "resend")
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+
+    def boom(req, timeout=None):
+        raise dd.urllib.error.HTTPError(req.full_url, 422, "Unprocessable",
+                                        {}, __import__("io").BytesIO(b'{"message":"no"}'))
+
+    monkeypatch.setattr(dd.urllib.request, "urlopen", boom)
+    assert dd.send("s", "b", "to@example.com", "from@example.com") is False
+
+
+def test_a_real_user_agent_is_sent(monkeypatch):
+    """Cloudflare fronts these APIs and 403s urllib's default agent with error
+    1010, which looks exactly like a rejected API key."""
+    sent = _capture(monkeypatch)
+    monkeypatch.setenv("MAIL_PROVIDER", "resend")
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+    dd.send("s", "b", "to@example.com", "from@example.com")
+    ua = sent["headers"].get("User-agent") or sent["headers"].get("user-agent", "")
+    assert ua and "python-urllib" not in ua.lower(), ua
