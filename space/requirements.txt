@@ -1,0 +1,14 @@
+# Minimal constraints. Let pip resolve against the SPACE's Python (3.10), not
+# the machine that built the index (3.14). Pinning exact local versions failed
+# the build: numpy==2.5.3 requires Python 3.11+.
+#
+# Deliberately absent:
+#   gradio  - the Space builder installs its own pinned gradio[oauth,mcp]
+#   torch   - ZeroGPU appends "torch<=2.13.0"
+#
+# transformers has a real floor: Qwen3 support landed in 4.51.
+transformers>=4.51
+accelerate
+sentence-transformers
+numpy<3
+peft

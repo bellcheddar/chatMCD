@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}chatMCD — ask about Marc Deller{% endblock %}
+{% block body_class %}is-embed{% endblock %}
+
+{% block head_meta %}
+<meta name="robots" content="noindex">
+{% endblock %}
+
+{% block content %}
+<div class="shell">
+  <header class="hdr">
+    <img class="hdr-avatar" src="{{ asset('img/marc.png') }}"
+         alt="Marc C. Deller" width="32" height="32">
+    <div class="hdr-id">
+      <p class="hdr-name">
+        <span class="logo-dot" aria-hidden="true"></span>
+        <a href="https://marcdeller.com" target="_blank" rel="noopener noreferrer">Marc C. Deller</a>
+      </p>
+      <p class="hdr-role">Ask me about Marc</p>
+    </div>
+
+    {# The link row does not fit at 320 px, so it becomes an overflow menu. #}
+    <div class="hdr-menu" id="menu">
+      <button type="button" aria-expanded="false" aria-haspopup="true"
+              aria-label="Links">•••</button>
+      <ul hidden>
+        {% for l in links %}
+        <li><a href="{{ l.href }}" target="_blank" rel="noopener noreferrer">{{ l.label }}</a></li>
+        {% endfor %}
+        <li><a href="mailto:marc@marcdeller.com">Email Marc</a></li>
+      </ul>
+    </div>
+
+    {% include "_theme_switch.html" %}
+  </header>
+
+  {% include "_panel.html" %}
+</div>
+{% endblock %}

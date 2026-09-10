@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block body_class %}is-app{% endblock %}
+
+{% block head_meta %}
+<meta name="description" content="chatMCD answers questions about Marc C. Deller, D.Phil. — structural biologist, drug-discovery leader, Co-Founder and CSO of Elora Therapeutics. It answers from his own papers, patents, thesis and notes.">
+<meta name="author" content="Marc C. Deller, D.Phil.">
+<link rel="canonical" href="https://chatmcd.mdeller.com/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="chatMCD — ask about Marc C. Deller">
+<meta property="og:description" content="Answers drawn from Marc Deller's own papers, patents and thesis. Ask it about his research, his 400+ protein structures, or Elora Therapeutics.">
+<meta property="og:url" content="https://chatmcd.mdeller.com/">
+<meta property="og:image" content="https://chatmcd.mdeller.com{{ asset('img/og.png') }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="chatMCD — ask about Marc C. Deller">
+<meta name="twitter:description" content="Answers drawn from Marc Deller's own papers, patents and thesis.">
+<meta name="twitter:image" content="https://chatmcd.mdeller.com{{ asset('img/og.png') }}">
+{% endblock %}
+
+{% block content %}
+<div class="shell">
+  <header class="hdr">
+    <img class="hdr-avatar" src="{{ asset('img/marc.png') }}"
+         alt="Marc C. Deller" width="42" height="42">
+    <div class="hdr-id">
+      <p class="hdr-name">
+        <span class="logo-dot" aria-hidden="true"></span>
+        <a href="https://marcdeller.com" target="_blank" rel="noopener noreferrer">Marc C. Deller</a>
+      </p>
+      <p class="hdr-role">D.Phil. · Structural biology · CSO, Elora Therapeutics</p>
+    </div>
+
+    <nav class="hdr-links" aria-label="Marc's links">
+      {% for l in links %}
+      <a class="hdr-link{% if l.primary %} primary{% endif %}" href="{{ l.href }}"
+         target="_blank" rel="noopener noreferrer">{{ l.label }}</a>
+      {% endfor %}
+    </nav>
+
+    {% include "_theme_switch.html" %}
+  </header>
+
+  {% include "_panel.html" %}
+</div>
+{% endblock %}

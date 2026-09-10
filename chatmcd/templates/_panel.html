@@ -1,0 +1,41 @@
+{# The chat panel: transcript + composer. Shared verbatim by / and /embed;
+   the widget's differences are all CSS, so the two surfaces can never drift. #}
+<main class="transcript" id="transcript" role="log" aria-live="polite"
+      aria-label="Conversation with chatMCD" tabindex="0">
+  <div class="msg bot">
+    <span class="who">chatMCD</span>
+    <div class="md">{{ greeting }}</div>
+  </div>
+  <p class="hint" id="hint">
+    <b>What can I ask?</b> Marc's career, his papers and PDB structures, Elora
+    Therapeutics, his patents, or the odd fun fact. Tap a chip below to start.
+  </p>
+</main>
+
+<div class="composer">
+  <div class="chips" id="chips" role="group" aria-label="Suggested questions">
+    {% for p in presets %}
+    <button class="chip" type="button" data-prompt="{{ p.prompt }}">{{ p.label }}</button>
+    {% endfor %}
+  </div>
+
+  <form class="input-row" id="composer" autocomplete="off">
+    <label class="visually-hidden" for="q">Ask a question about Marc</label>
+    <textarea id="q" name="q" rows="1" placeholder="Ask a question about Marc…"
+              maxlength="2000" enterkeyhint="send"></textarea>
+    <button class="send" id="send" type="submit" aria-label="Send">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 19V5M5 12l7-7 7 7"/>
+      </svg>
+    </button>
+  </form>
+
+  {% if mode == 'app' %}
+  <p class="foot-note">
+    ANSWERS FROM MARC'S OWN PAPERS · SERVED FROM HUGGING FACE ·
+    <a href="mailto:marc@marcdeller.com">marc@marcdeller.com</a> ·
+    <button type="button" id="export" class="link-btn">EXPORT THIS CHAT</button>
+  </p>
+  {% endif %}
+</div>

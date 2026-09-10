@@ -1,0 +1,274 @@
+<h1>💬 chatMCD</h1>
+<blockquote>
+<p><strong>Ask a question about Marc C. Deller and get a straight answer, drawn from his own writing.</strong></p>
+</blockquote>
+<p><a href="https://chatmcd.mdeller.com"><img alt="live" src="https://img.shields.io/badge/live-chatmcd.mdeller.com-00d084?logo=icloud&amp;logoColor=white"></a> <img alt="python" src="https://img.shields.io/badge/python-3.12.3-3776AB?logo=python&amp;logoColor=white"> <img alt="flask" src="https://img.shields.io/badge/flask-3.1.3-000000?logo=flask&amp;logoColor=white"> <img alt="gunicorn" src="https://img.shields.io/badge/gunicorn-26.2.0-499848?logo=gunicorn&amp;logoColor=white"> <img alt="nginx" src="https://img.shields.io/badge/nginx-1.24.0-009639?logo=nginx&amp;logoColor=white"> <img alt="sqlite" src="https://img.shields.io/badge/sqlite-3.45.1-003B57?logo=sqlite&amp;logoColor=white"> <img alt="gradio" src="https://img.shields.io/badge/gradio-5.49.1-F97316?logo=gradio&amp;logoColor=white"> <img alt="model" src="https://img.shields.io/badge/model-Qwen3--8B-467FF7"> <img alt="hosting" src="https://img.shields.io/badge/inference-ZeroGPU-FFD21E?logo=huggingface&amp;logoColor=black"> <img alt="embeddings" src="https://img.shields.io/badge/embeddings-all--MiniLM--L6--v2-9b51e0"> <img alt="pytest" src="https://img.shields.io/badge/pytest-23%20passing-0A9EDC?logo=pytest&amp;logoColor=white"> <img alt="browser" src="https://img.shields.io/badge/browser%20checks-38%20passing-00897B"> <img alt="wordpress" src="https://img.shields.io/badge/plugin%20tests-48%20passing-21759B?logo=wordpress&amp;logoColor=white"> <img alt="licence" src="https://img.shields.io/badge/licence-MIT-lightgrey"> <img alt="author" src="https://img.shields.io/badge/author-Marc%20C.%20Deller%2C%20D.Phil.-1C244B"></p>
+<table class="emd-info-table">
+<tr>
+<td>🌐 <b>App</b></td><td><a href="https://chatmcd.mdeller.com" target="_blank" rel="noopener noreferrer">chatmcd.mdeller.com</a></td>
+<td>✉️ <b>Contact</b></td><td><a href="mailto:marc@marcdeller.com">marc@marcdeller.com</a></td>
+<td>🐙 <b>GitHub</b></td><td><a href="https://github.com/bellcheddar/chatMCD" target="_blank" rel="noopener noreferrer">bellcheddar/chatMCD</a></td>
+</tr>
+</table>
+
+<hr>
+<p><img alt="The chatMCD web app answering a question about leadership, with the answer rendered as a numbered list" src="docs/screenshots/app-light.png"></p>
+<p>chatMCD is a chatbot that answers questions about Marc C. Deller, D.Phil., a structural biologist and drug discovery scientist. It talks <em>about</em> him in the third person, it answers from his own papers, patents, thesis and notes, and when it does not know something it says so instead of guessing.</p>
+<p><strong>Why it matters:</strong> most personal chatbots are a language model with a biography pasted into the prompt, so they invent plausible details the moment a question goes past what was pasted in. chatMCD works the other way round: before it answers anything it looks up the passages that are actually relevant, and it answers from those. That one decision is what makes it safe to point a recruiter, a collaborator or a journalist at. It is useful for: anyone who wants a straight answer about someone's work without reading a CV, and for anyone who wants to build the same thing for themselves, since the whole serving stack is here.</p>
+<h2>✨ How it works</h2>
+<p>Three pieces, and the middle one is the important one.</p>
+<ol>
+<li><strong>You ask a question</strong> in the web app, the embeddable widget, or through the API.</li>
+<li><strong>It finds the relevant writing.</strong> Every question is compared against a library of short question-and-answer pairs plus longer passages from Marc's papers and blog. The best matches are pulled out.</li>
+<li><strong>A language model writes the answer</strong> using only those passages, and streams it back a word at a time.</li>
+</ol>
+<p>Step 2 is what stops it making things up. The model is not asked "what do you know about Marc Deller"; it is handed the relevant paragraphs and asked to answer from them. If nothing relevant comes back, the honest answer is "I do not know", and that is what it gives.</p>
+<p><strong>Why matching questions to questions works so well.</strong> The library is built mostly from short question-and-answer pairs rather than long prose. A question like "what is Elora Therapeutics?" looks, mathematically, far more like another short question than it does like a page of a scientific paper, so the match is much sharper. Longer passages are kept alongside them, because they are the only way to reach the long tail of blog posts that the short pairs do not cover.</p>
+<p><strong>No fine-tuning.</strong> The language model is used exactly as published. Nothing is trained, and there is no custom model to keep in step with the writing: when Marc writes something new, the library is rebuilt and the answers change. This was measured rather than assumed, and it also scored better.</p>
+<h2>📊 How well it works</h2>
+<p>Measured on a fixed set of 50 questions in six categories, run end to end through the live site:</p>
+<div class="emd-table-wrap"><table class="emd-data-table">
+<thead>
+<tr>
+<th>Category</th>
+<th>What it tests</th>
+<th style="text-align: right;">Score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="Category">Facts</td>
+<td data-label="What it tests">Roles, employers, publication and structure counts, qualifications</td>
+<td style="text-align: right;" data-label="Score">16/17</td>
+</tr>
+<tr>
+<td data-label="Category">Personality</td>
+<td data-label="What it tests">Style, philosophy, the stories behind project names</td>
+<td style="text-align: right;" data-label="Score">8/8</td>
+</tr>
+<tr>
+<td data-label="Category">Web</td>
+<td data-label="What it tests">Blog posts, site pages, the other apps</td>
+<td style="text-align: right;" data-label="Score">8/8</td>
+</tr>
+<tr>
+<td data-label="Category">Honesty</td>
+<td data-label="What it tests">Things the writing genuinely does not cover: it must decline</td>
+<td style="text-align: right;" data-label="Score">4/4</td>
+</tr>
+<tr>
+<td data-label="Category">Manners</td>
+<td data-label="What it tests">Off-topic requests: it must redirect, not comply</td>
+<td style="text-align: right;" data-label="Score">4/5</td>
+</tr>
+<tr>
+<td data-label="Category">Depth</td>
+<td data-label="What it tests">Detailed scientific explanations</td>
+<td style="text-align: right;" data-label="Score">5/8</td>
+</tr>
+<tr>
+<td data-label="Category"><strong>Overall</strong></td>
+<td data-label="What it tests"></td>
+<td style="text-align: right;" data-label="Score"><strong>45/50 (90%)</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>A typical answer starts arriving in about <strong>5 to 7 seconds</strong>.</p>
+<p>Under load (each conversation a different question, so nothing is cached anywhere):</p>
+<div class="emd-table-wrap"><table class="emd-data-table">
+<thead>
+<tr>
+<th style="text-align: right;">Simultaneous conversations</th>
+<th style="text-align: right;">Time to first word (95th percentile)</th>
+<th style="text-align: right;">Failures</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;" data-label="Simultaneous conversations">3</td>
+<td style="text-align: right;" data-label="Time to first word (95th percentile)">1.8 s</td>
+<td style="text-align: right;" data-label="Failures">0</td>
+</tr>
+<tr>
+<td style="text-align: right;" data-label="Simultaneous conversations">8</td>
+<td style="text-align: right;" data-label="Time to first word (95th percentile)">5.9 s</td>
+<td style="text-align: right;" data-label="Failures">0</td>
+</tr>
+<tr>
+<td style="text-align: right;" data-label="Simultaneous conversations">12</td>
+<td style="text-align: right;" data-label="Time to first word (95th percentile)">6.4 s</td>
+<td style="text-align: right;" data-label="Failures">0</td>
+</tr>
+<tr>
+<td style="text-align: right;" data-label="Simultaneous conversations">20</td>
+<td style="text-align: right;" data-label="Time to first word (95th percentile)">27.1 s</td>
+<td style="text-align: right;" data-label="Failures">0</td>
+</tr>
+</tbody>
+</table></div>
+<p>Nothing ever fails: it queues. The queue is the shared GPU, not the web server, so twelve people at once is comfortable and twenty simply wait longer.</p>
+<h2>🧱 How it is put together</h2>
+<div class="emd-table-wrap"><table class="emd-data-table">
+<thead>
+<tr>
+<th>Piece</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="Piece"><strong>Hugging Face Space</strong></td>
+<td data-label="What it does">Holds the model and the searchable library, and does the actual answering on a GPU that is attached only for the seconds it is needed</td>
+</tr>
+<tr>
+<td data-label="Piece"><strong>Flask app</strong></td>
+<td data-label="What it does">The website at <code>chatmcd.mdeller.com</code>. It is the only thing that holds the Hugging Face token, streams answers to the browser, and logs which questions get asked</td>
+</tr>
+<tr>
+<td data-label="Piece"><strong>WordPress plugin</strong></td>
+<td data-label="What it does">Drops the chat box into a WordPress page as a shortcode or a block</td>
+</tr>
+</tbody>
+</table></div>
+<p>The browser never talks to the model directly, and never sees a token.</p>
+<h2>🚀 Running it locally</h2>
+<pre><code class="language-bash">python3 -m venv .venv
+.venv/bin/pip install -r chatmcd/requirements.txt
+cp .env.example .env          # then fill in HF_TOKEN
+</code></pre>
+<p>The quickest way to see the front end, with no model and no GPU time spent:</p>
+<pre><code class="language-bash">MOCK_SPACE=1 PORT=8010 .venv/bin/python3 -m chatmcd.app
+</code></pre>
+<p><code>MOCK_SPACE=1</code> serves canned answers, so the whole interface can be developed and screenshotted offline.</p>
+<p>To rebuild the searchable library after the source writing changes:</p>
+<pre><code class="language-bash">python3 scripts/build_rag_index.py
+</code></pre>
+<h2>🛠️ Configuration</h2>
+<p>Everything is set in <code>.env</code>. The ones that matter:</p>
+<div class="emd-table-wrap"><table class="emd-data-table">
+<thead>
+<tr>
+<th>Setting</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="Setting"><code>HF_TOKEN</code></td>
+<td data-label="What it does">Hugging Face token. <strong>Required</strong>, even for a public Space: the anonymous GPU allowance is small, counted per server, and runs out quickly. A read-only token is enough</td>
+</tr>
+<tr>
+<td data-label="Setting"><code>HF_SPACE_ID</code></td>
+<td data-label="What it does">Which Space to call</td>
+</tr>
+<tr>
+<td data-label="Setting"><code>KEEPWARM_ENABLED</code></td>
+<td data-label="What it does">Pings the Space periodically so nobody lands on a cold start</td>
+</tr>
+<tr>
+<td data-label="Setting"><code>RATE_LIMIT</code></td>
+<td data-label="What it does">Requests allowed per visitor, for example <code>"20 per minute"</code></td>
+</tr>
+<tr>
+<td data-label="Setting"><code>LOG_QUESTIONS</code></td>
+<td data-label="What it does">Whether to record which questions get asked. Email addresses and phone numbers are stripped before anything is written</td>
+</tr>
+<tr>
+<td data-label="Setting"><code>MOCK_SPACE</code></td>
+<td data-label="What it does"><code>1</code> serves canned answers instead of calling the model</td>
+</tr>
+</tbody>
+</table></div>
+<h2>🌐 The API</h2>
+<div class="emd-table-wrap"><table class="emd-data-table">
+<thead>
+<tr>
+<th>Route</th>
+<th>What it is for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="Route"><code>GET /</code></td>
+<td data-label="What it is for">The full chat app</td>
+</tr>
+<tr>
+<td data-label="Route"><code>GET /embed</code></td>
+<td data-label="What it is for">The compact widget, for putting in a page on another site</td>
+</tr>
+<tr>
+<td data-label="Route"><code>POST /api/chat</code></td>
+<td data-label="What it is for">Send <code>{message, history}</code>, get a stream of words back</td>
+</tr>
+<tr>
+<td data-label="Route"><code>GET /api/presets</code></td>
+<td data-label="What it is for">The suggested-question chips, so no front end hardcodes them</td>
+</tr>
+<tr>
+<td data-label="Route"><code>GET /api/health</code></td>
+<td data-label="What it is for">Is it up, and is the model warm</td>
+</tr>
+<tr>
+<td data-label="Route"><code>POST /api/feedback</code></td>
+<td data-label="What it is for">Thumbs up or down on an answer</td>
+</tr>
+<tr>
+<td data-label="Route"><code>GET /llms.txt</code></td>
+<td data-label="What it is for">A plain description of the page, for crawlers</td>
+</tr>
+</tbody>
+</table></div>
+<p>Also in place: per-visitor rate limiting, a content security policy, and framing restricted to Marc's own domains so the widget cannot be embedded elsewhere.</p>
+<h2>🔌 WordPress</h2>
+<pre><code class="language-text">[chatmcd]
+[chatmcd mode=&quot;bubble&quot; theme=&quot;dark&quot; label=&quot;Ask about Marc&quot;]
+</code></pre>
+<p>A full plugin: shortcode, block, settings screen, inline and floating-bubble modes. The bubble does not load the widget until someone opens it, so a visitor who ignores it downloads nothing.</p>
+<pre><code class="language-bash">bash scripts/build_plugin_zip.sh      # lints, tests, then zips
+</code></pre>
+<p>Full instructions in <a href="docs/EMBED.md"><code>docs/EMBED.md</code></a>.</p>
+<h2>🧪 Tests</h2>
+<pre><code class="language-bash">.venv/bin/python3 -m pytest chatmcd/ eval/     # 18 tests
+.venv-gradio/bin/python3 -m pytest space/      # 5 tests, needs gradio
+php wordpress/tests/test_plugin.php            # 48 tests
+python3 scripts/browser_check.py               # 38 checks in a real browser
+</code></pre>
+<p>The browser checks drive a real Chrome over the DevTools protocol rather than taking a screenshot and hoping: they cover streaming, the markdown rendering, the copy and voting buttons, the light and dark themes, the widget, and a clean console.</p>
+<pre><code class="language-bash">python3 scripts/load_test.py --n 12            # concurrent conversations
+</code></pre>
+<h2>🧱 Layout</h2>
+<pre><code class="language-text">chatMCD/
+├── chatmcd/            the Flask app, its templates, CSS and JavaScript
+├── space/              the Hugging Face Space that does the answering
+├── wordpress/          the plugin and its tests
+├── eval/               the scoring harness
+├── scripts/            index build, browser checks, load test, question digest
+├── deploy/             gunicorn, systemd, nginx, deploy script
+├── training/           the scripts that build the searchable library
+└── docs/               embedding guide, model notes, screenshots
+</code></pre>
+<h2>✅ To Do</h2>
+<p>Roadmap for chatMCD, newest first. Suggestions welcome.</p>
+<ul class="emd-tasklist">
+<li><span class="emd-check">&#9989;</span> <strong>Live at <a href="https://chatmcd.mdeller.com">chatmcd.mdeller.com</a>.</strong> Flask behind nginx with TLS, answers streaming word by word, conversation history carried between turns, light and dark themes with light as the default.</li>
+<li><span class="emd-check">&#9989;</span> <strong>Answers from the writing, not from the model's memory.</strong> Relevant passages are retrieved for every question and the model answers from those. Measured at 45/50 on a fixed 50-question set, including 4/4 on questions it is supposed to refuse.</li>
+<li><span class="emd-check">&#9989;</span> <strong>Load tested.</strong> Twelve simultaneous conversations stay inside a ten second budget with no failures, and it queues rather than erroring above that.</li>
+<li><span class="emd-check">&#9989;</span> <strong>Embeddable anywhere on Marc's sites.</strong> A compact widget plus a WordPress plugin with a shortcode, a block and a settings screen.</li>
+<li><span class="emd-check">&#9989;</span> <strong>Tested where it actually runs.</strong> The published API contract, the failure handling, the scoring, the plugin, and 38 checks driving a real browser.</li>
+<li><span class="emd-check">&#11036;</span> <strong>Stop it writing poems and code.</strong> The one weak spot. Asked for a sorting function it writes one, despite being told not to. The redirect examples it needs are missing from the library rather than being ignored, so the fix is more example refusals, not more instructions.</li>
+<li><span class="emd-check">&#11036;</span> <strong>Say so when nothing relevant is found.</strong> Right now an empty search still gets an answer attempt. It should decline instead: this is the main remaining lever on honesty.</li>
+<li><span class="emd-check">&#11036;</span> <strong>Feed the questions back in.</strong> <code>scripts/digest.py</code> groups what visitors actually asked by how often they asked it. The long tail is a list of things the writing does not yet cover.</li>
+</ul>
+<h2>📄 Licence</h2>
+<p>MIT, for the code. Marc's writing (his papers, patents, thesis, notes and the question-and-answer pairs built from them) is <strong>not</strong> included in this repository and stays under its original copyright. See <a href="LICENSE"><code>LICENSE</code></a>, section SCOPE.</p>
+<hr>
+<h2>👤 Author</h2>
+<p><strong>Marc C. Deller, D.Phil.</strong><br>
+Structural biologist &amp; drug discovery scientist  </p>
+<table class="emd-info-table">
+<tr>
+<td>🌐</td><td><a href="https://marcdeller.com" target="_blank" rel="noopener noreferrer">marcdeller.com</a></td>
+<td>✉️</td><td><a href="mailto:marc@marcdeller.com">marc@marcdeller.com</a></td>
+<td>🐙</td><td><a href="https://github.com/bellcheddar/chatMCD" target="_blank" rel="noopener noreferrer">github.com/bellcheddar/chatMCD</a></td>
+</tr>
+</table>

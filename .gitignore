@@ -1,0 +1,82 @@
+# Exported session transcripts: /export writes them into the repo.
+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.txt
+
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.env
+
+# Training artefacts and models: large, reproducible, and not source.
+adapters/
+models/
+logs/
+var/
+dist/
+eval/answers/
+space/index/
+train/bakeoff.json
+wandb/
+
+# The zipped copy of training/ that seeded this repo.
+chatMCD-training.zip
+
+# The corpus is NOT redistributed: it is the full text of Marc's thesis, papers
+# and patents, and it stays under its original copyright. See LICENSE > SCOPE.
+# The pipeline that builds it does ship: build_jsonl.py, fetch_sources.py,
+# README.md and system_prompt.md are deliberately not excluded here.
+training/corpus/
+training/qa/
+training/mlx/
+
+# Python 3.12 venv holding gradio, for space/test_api_contract.py only.
+# The project venv is 3.14 and gradio pydantic pin has no wheel for it.
+.venv-gradio/
+
+# Superseded working material, kept locally only. `trash/` is 120 files of the
+# same corpus that is excluded above -- an old full copy of training/, the PDF
+# text of papers and theses, academic transcripts, and the Elora provisional
+# patent. None of it is redistributable and some of it is commercially
+# sensitive. It is one line here or an unrecoverable public commit; git history
+# keeps a blob reachable by SHA even after a force-push.
+trash/
+Claude outputs/
+
+# ---------------------------------------------------------------- personal data
+# The repo ships the machinery, not Marc's personal information. These carry
+# private facts rather than code:
+#   questions.yaml  asserts private biographical facts as expected answers
+#   reports/        78 full answer transcripts that repeat them
+#   system_prompt   carries a rule about a private contact detail
+#   training/README describes the private source documents behind the corpus
+eval/questions.yaml
+eval/QUESTIONS_SHA
+eval/reports/
+training/system_prompt.md
+space/system_prompt.md
+training/README.md
+
+# The original build plan: it specifies the fine-tuning route that measurement
+# later rejected, so publishing it would document a path this project does not take.
+chatmcd-build-plan.md
+
+train/bakeoff_contended_4b.json.bak
+
+# ------------------------------------------------- not part of the working system
+# The repo ships what actually runs. These are the LoRA fine-tuning route, which
+# measurement rejected in favour of retrieval and which nothing in production uses.
+train/
+convert/
+
+# A catalogue of what went wrong on the way. Useful notes, but this repo documents
+# the working system, not the path to it.
+docs/DEPLOYMENT_LESSONS.md
+
+# The training-pipeline scripts belong to the fine-tuning route excluded above.
+scripts/finish_round.sh
+scripts/publish_model.sh
+scripts/watchdog.sh
+scripts/check_template_alignment.py
+scripts/preflight.sh
+scripts/model_card.py
+scripts/download_bases.sh

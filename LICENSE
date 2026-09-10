@@ -1,0 +1,41 @@
+MIT Licence
+
+Copyright (c) 2026 Marc C. Deller
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+SCOPE
+
+The MIT licence above covers the code, configuration and documentation in this
+repository.
+
+It does NOT cover the training corpus. The contents of `training/corpus/`,
+`training/qa/` and `training/mlx/` are the full text of Marc C. Deller's D.Phil.
+thesis, papers, patents, posters and website, together with question-and-answer
+pairs derived from them. Those remain under their original copyright, are not
+redistributed with this repository, and are excluded by `.gitignore`.
+
+What ships is the pipeline that builds a corpus, not the corpus:
+`training/build_jsonl.py`, `training/fetch_sources.py`, `training/README.md` and
+`training/system_prompt.md` are covered by the MIT licence above.
+
+The trained model weights published to the Hugging Face Hub are released
+separately under Apache 2.0, matching the licence of the Qwen3 base model.

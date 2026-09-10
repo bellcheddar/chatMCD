@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-forced-theme="{{ forced_theme }}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>{% block title %}chatMCD — ask about Marc C. Deller{% endblock %}</title>
+{% block head_meta %}{% endblock %}
+<link rel="icon" href="{{ asset('img/favicon.svg') }}" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="{{ asset('css/chatmcd.css') }}">
+{#  Resolve the theme before first paint. Light is the default: a stored choice
+    is the only thing that changes it, so the page never flashes dark at a
+    visitor who never asked for it. #}
+<script nonce="{{ csp_nonce() }}">
+  (function () {
+    var el = document.documentElement;
+    var forced = el.dataset.forcedTheme;          // '', 'light', 'dark' or 'auto'
+    var theme = 'light';                          // the default, deliberately
+    if (forced === 'auto') {
+      theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } else if (forced === 'dark' || forced === 'light') {
+      theme = forced;
+    } else {
+      try {
+        theme = localStorage.getItem('chatmcd-theme') === 'dark' ? 'dark' : 'light';
+      } catch (e) { /* private mode: the light default already stands */ }
+    }
+    el.dataset.theme = theme;
+  })();
+</script>
+</head>
+<body class="{% block body_class %}{% endblock %}"
+      data-mode="{{ mode }}"
+      data-version="{{ version }}">
+{% block content %}{% endblock %}
+<script src="{{ asset('js/chatmcd.js') }}" defer></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

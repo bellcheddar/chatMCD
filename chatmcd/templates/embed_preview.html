@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}chatMCD widget preview{% endblock %}
+{% block body_class %}is-preview{% endblock %}
+{% block head_meta %}<meta name="robots" content="noindex">{% endblock %}
+
+{% block content %}
+<div class="preview-wrap">
+  <header class="preview-head">
+    <h1>chatMCD widget preview</h1>
+    <p>The widget as it ships, framed at the three widths that matter: the
+      Elementor floor, a typical sidebar, and the documented maximum. The
+      <code>postMessage</code> height listener is wired here too, so the reported
+      height is shown live under each frame.</p>
+    <div class="preview-controls">
+      <label>Theme
+        <select id="theme-sel">
+          <option value="light">light (default)</option>
+          <option value="dark">dark</option>
+          <option value="auto">auto (follow visitor)</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <div class="preview-row">
+    {% for w in [320, 380, 420] %}
+    <figure class="preview-cell" style="--w: {{ w }}px">
+      <figcaption>{{ w }} px</figcaption>
+      <iframe data-w="{{ w }}" src="/embed?theme=light"
+              title="chatMCD widget at {{ w }} pixels" loading="lazy"></iframe>
+      <p class="preview-h" data-for="{{ w }}">height: —</p>
+    </figure>
+    {% endfor %}
+  </div>
+
+  <section class="preview-snippet">
+    <h2>Elementor snippet</h2>
+    <pre id="snippet"></pre>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script nonce="{{ csp_nonce() }}">
+  const sel = document.getElementById('theme-sel');
+  const frames = [...document.querySelectorAll('.preview-cell iframe')];
+  const setTheme = () => frames.forEach((f) => {
+    f.src = '/embed?theme=' + sel.value;
+  });
+  sel.addEventListener('change', () => { setTheme(); renderSnippet(); });
+
+  // The listener an embedding page uses to auto-size the iframe.
+  window.addEventListener('message', (e) => {
+    if (!e.data || e.data.type !== 'chatmcd:height') return;
+    const frame = frames.find((f) => f.contentWindow === e.source);
+    if (!frame) return;
+    const out = document.querySelector(`.preview-h[data-for="${frame.dataset.w}"]`);
+    if (out) out.textContent = 'height: ' + e.data.height + ' px';
+  });
+
+  function renderSnippet() {
+    const t = sel.value === 'light' ? '' : '?theme=' + sel.value;
+    document.getElementById('snippet').textContent =
+`<iframe src="https://chatmcd.mdeller.com/embed${t}"
+        style="width:100%;max-width:420px;height:560px;border:0;border-radius:14px"
+        title="chatMCD — ask about Marc Deller" loading="lazy"></iframe>`;
+  }
+  renderSnippet();
+</script>
+{% endblock %}

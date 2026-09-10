@@ -1,0 +1,25 @@
+# systemd unit for the chatMCD web app (gunicorn behind nginx).
+# Installed to /etc/systemd/system/ by provision.sh.
+[Unit]
+Description=chatMCD web app (gunicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=chatmcd
+Group=chatmcd
+WorkingDirectory=/opt/chatmcd
+EnvironmentFile=-/opt/chatmcd/.env
+ExecStart=/opt/chatmcd/.venv/bin/gunicorn --config /opt/chatmcd/deploy/gunicorn.conf.py wsgi:app
+Restart=on-failure
+RestartSec=3
+# This process holds no model and no large buffers: it proxies a token stream
+# and writes short rows to SQLite. If it ever approaches this it has a leak.
+MemoryMax=400M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/chatmcd
+[Install]
+WantedBy=multi-user.target
