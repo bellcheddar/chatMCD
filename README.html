@@ -13,6 +13,7 @@
 
 <hr>
 <p><img alt="The chatMCD web app answering a question about leadership, with the answer rendered as a numbered list" src="docs/screenshots/app-light.png"></p>
+<p><sub>Captured before two fixes landed: the status dot beside the name is now a live health light, and the patent count in that answer came from a line of the source material that contradicted ten others. Both are corrected; the screenshot is refreshed on the next run with GPU credits available.</sub></p>
 <p>chatMCD is a chatbot that answers questions about Marc C. Deller, D.Phil., a structural biologist and drug discovery scientist. It talks <em>about</em> him in the third person, it answers from his own papers, patents, thesis and notes, and when it does not know something it says so instead of guessing.</p>
 <p><strong>Why it matters:</strong> most personal chatbots are a language model with a biography pasted into the prompt, so they invent plausible details the moment a question goes past what was pasted in. chatMCD works the other way round: before it answers anything it looks up the passages that are actually relevant, and it answers from those. That one decision is what makes it safe to point a recruiter, a collaborator or a journalist at. It is useful for: anyone who wants a straight answer about someone's work without reading a CV, and for anyone who wants to build the same thing for themselves, since the whole serving stack is here.</p>
 <h2>✨ How it works</h2>
@@ -113,6 +114,33 @@
 </tbody>
 </table></div>
 <p>Nothing ever fails: it queues. The queue is the shared GPU, not the web server, so twelve people at once is comfortable and twenty simply wait longer.</p>
+<h2>🟢 Is it live?</h2>
+<p>The dot beside Marc's name in the header answers that, and it is checked rather than assumed.</p>
+<div class="emd-table-wrap"><table class="emd-data-table">
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td data-label="">🟢 <strong>Green</strong></td>
+<td data-label="">Answering normally. It grows and pulses gently</td>
+</tr>
+<tr>
+<td data-label="">🟠 <strong>Amber</strong></td>
+<td data-label="">Queued behind the shared GPU, or waking from cold: slower, but working</td>
+</tr>
+<tr>
+<td data-label="">🔴 <strong>Red</strong></td>
+<td data-label="">Cannot answer. The reason is in the tooltip, and on the page itself</td>
+</tr>
+</tbody>
+</table></div>
+<p>Red does not pulse. A thing that pulses while broken reads as "working" to anyone not looking closely.</p>
+<p>Running out of the free GPU allowance gets its own treatment, because it is the one outage with a known cause and a known end: the page says so plainly above the question box, and points at Marc's site and email instead of leaving a visitor to discover it by asking. Hugging Face publishes no quota endpoint and an exhausted allowance looks identical to any other failure over the wire, so it is inferred from the one signature it has, a completion of zero tokens, and held until a real answer proves otherwise.</p>
+<p>The check is deliberately cheap. It answers from what the app last observed and falls back to a cached handshake, so an open tab polling every 45 seconds never touches a GPU: a status light that spent the allowance it exists to report on would be worse than no light at all.</p>
 <h2>🧱 How it is put together</h2>
 <div class="emd-table-wrap"><table class="emd-data-table">
 <thead>
@@ -180,6 +208,14 @@ cp .env.example .env          # then fill in HF_TOKEN
 <td data-label="What it does">Whether to record what gets asked. Stores the question, the answer, the visitor's address, browser and how long it took. Email addresses and phone numbers are stripped from both the question and the answer before anything is written</td>
 </tr>
 <tr>
+<td data-label="Setting"><code>MAX_NEW_TOKENS</code></td>
+<td data-label="What it does">How long an answer may run. 1200: at 512 the longer structured answers were cut off mid-sentence</td>
+</tr>
+<tr>
+<td data-label="Setting"><code>TEMPERATURE</code></td>
+<td data-label="What it does">How much the model varies. 0.45: lower keeps it closer to the retrieved text</td>
+</tr>
+<tr>
 <td data-label="Setting"><code>MOCK_SPACE</code></td>
 <td data-label="What it does"><code>1</code> serves canned answers instead of calling the model</td>
 </tr>
@@ -236,7 +272,7 @@ cp .env.example .env          # then fill in HF_TOKEN
 </tr>
 <tr>
 <td data-label="Route"><code>GET /api/health</code></td>
-<td data-label="What it is for">Is it up, and is the model warm</td>
+<td data-label="What it is for">Whether it can actually answer: <code>ok</code>, <code>degraded</code> or <code>down</code>, with a <code>reason</code> and a sentence a person can read</td>
 </tr>
 <tr>
 <td data-label="Route"><code>POST /api/feedback</code></td>

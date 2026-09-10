@@ -16,6 +16,8 @@
 
 ![The chatMCD web app answering a question about leadership, with the answer rendered as a numbered list](docs/screenshots/app-light.png)
 
+<sub>Captured before two fixes landed: the status dot beside the name is now a live health light, and the patent count in that answer came from a line of the source material that contradicted ten others. Both are corrected; the screenshot is refreshed on the next run with GPU credits available.</sub>
+
 chatMCD is a chatbot that answers questions about Marc C. Deller, D.Phil., a structural biologist and drug discovery scientist. It talks *about* him in the third person, it answers from his own papers, patents, thesis and notes, and when it does not know something it says so instead of guessing.
 
 **Why it matters:** most personal chatbots are a language model with a biography pasted into the prompt, so they invent plausible details the moment a question goes past what was pasted in. chatMCD works the other way round: before it answers anything it looks up the passages that are actually relevant, and it answers from those. That one decision is what makes it safe to point a recruiter, a collaborator or a journalist at. It is useful for: anyone who wants a straight answer about someone's work without reading a CV, and for anyone who wants to build the same thing for themselves, since the whole serving stack is here.
@@ -74,6 +76,33 @@ Under load (each conversation a different question, so nothing is cached anywher
 
 Nothing ever fails: it queues. The queue is the shared GPU, not the web server, so twelve people at once is comfortable and twenty simply wait longer.
 
+## 🟢 Is it live?
+
+The dot beside Marc's name in the header answers that, and it is checked rather
+than assumed.
+
+| | |
+|---|---|
+| 🟢 **Green** | Answering normally. It grows and pulses gently |
+| 🟠 **Amber** | Queued behind the shared GPU, or waking from cold: slower, but working |
+| 🔴 **Red** | Cannot answer. The reason is in the tooltip, and on the page itself |
+
+Red does not pulse. A thing that pulses while broken reads as "working" to
+anyone not looking closely.
+
+Running out of the free GPU allowance gets its own treatment, because it is the
+one outage with a known cause and a known end: the page says so plainly above
+the question box, and points at Marc's site and email instead of leaving a
+visitor to discover it by asking. Hugging Face publishes no quota endpoint and
+an exhausted allowance looks identical to any other failure over the wire, so it
+is inferred from the one signature it has, a completion of zero tokens, and held
+until a real answer proves otherwise.
+
+The check is deliberately cheap. It answers from what the app last observed and
+falls back to a cached handshake, so an open tab polling every 45 seconds never
+touches a GPU: a status light that spent the allowance it exists to report on
+would be worse than no light at all.
+
 ## 🧱 How it is put together
 
 | Piece | What it does |
@@ -117,6 +146,8 @@ Everything is set in `.env`. The ones that matter:
 | `KEEPWARM_ENABLED` | Pings the Space periodically so nobody lands on a cold start |
 | `RATE_LIMIT` | Requests allowed per visitor, for example `"20 per minute"` |
 | `LOG_QUESTIONS` | Whether to record what gets asked. Stores the question, the answer, the visitor's address, browser and how long it took. Email addresses and phone numbers are stripped from both the question and the answer before anything is written |
+| `MAX_NEW_TOKENS` | How long an answer may run. 1200: at 512 the longer structured answers were cut off mid-sentence |
+| `TEMPERATURE` | How much the model varies. 0.45: lower keeps it closer to the retrieved text |
 | `MOCK_SPACE` | `1` serves canned answers instead of calling the model |
 | `DIGEST_TO` | Where the daily usage digest is emailed |
 | `MAIL_PROVIDER` | `resend` (default) or `mailgun`. Not SMTP: every outbound SMTP port is blocked on this droplet |
@@ -133,7 +164,7 @@ Everything is set in `.env`. The ones that matter:
 | `GET /embed` | The compact widget, for putting in a page on another site |
 | `POST /api/chat` | Send `{message, history}`, get a stream of words back |
 | `GET /api/presets` | The suggested-question chips, so no front end hardcodes them |
-| `GET /api/health` | Is it up, and is the model warm |
+| `GET /api/health` | Whether it can actually answer: `ok`, `degraded` or `down`, with a `reason` and a sentence a person can read |
 | `POST /api/feedback` | Thumbs up or down on an answer |
 | `GET /llms.txt` | A plain description of the page, for crawlers |
 
