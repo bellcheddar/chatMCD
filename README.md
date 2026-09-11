@@ -194,6 +194,33 @@ A full plugin: shortcode, block, settings screen, inline and floating-bubble mod
 bash scripts/build_plugin_zip.sh      # lints, tests, then zips
 ```
 
+**Without the plugin: Elementor, or any HTML block.**
+
+1. In Elementor, drag an **HTML** widget onto the page.
+2. Paste the code below into it, as one block: the script must sit directly after the iframe, because it finds the iframe as the element just before it.
+3. Update or publish the page. The widget sizes itself to the conversation as it grows.
+
+```html
+<iframe src="https://chatmcd.mdeller.com/embed"
+        style="width:100%;max-width:420px;height:560px;border:0;border-radius:14px"
+        title="chatMCD — ask about Marc Deller" loading="lazy"></iframe>
+<script>
+(function () {
+  var frame = document.currentScript.previousElementSibling;
+  window.addEventListener('message', function (e) {
+    // Only trust messages from the widget's own origin.
+    if (e.origin !== 'https://chatmcd.mdeller.com') return;
+    if (!e.data || e.data.type !== 'chatmcd:height') return;
+    if (e.source !== frame.contentWindow) return;
+    var h = parseInt(e.data.height, 10);
+    if (h >= 240 && h <= 2000) frame.style.height = h + 'px';
+  });
+})();
+</script>
+```
+
+Add `?theme=dark` or `?theme=auto` to the URL to change the theme, and adjust `max-width` to suit the column. It embeds only on `marcdeller.com`, `mdeller.com` and their subdomains: the site's content security policy tells browsers to refuse it anywhere else.
+
 Full instructions in [`docs/EMBED.md`](docs/EMBED.md).
 
 ## 🧪 Tests

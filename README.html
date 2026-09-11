@@ -301,6 +301,30 @@ cp .env.example .env          # then fill in HF_TOKEN
 <p>A full plugin: shortcode, block, settings screen, inline and floating-bubble modes. The bubble does not load the widget until someone opens it, so a visitor who ignores it downloads nothing.</p>
 <pre><code class="language-bash">bash scripts/build_plugin_zip.sh      # lints, tests, then zips
 </code></pre>
+<p><strong>Without the plugin: Elementor, or any HTML block.</strong></p>
+<ol>
+<li>In Elementor, drag an <strong>HTML</strong> widget onto the page.</li>
+<li>Paste the code below into it, as one block: the script must sit directly after the iframe, because it finds the iframe as the element just before it.</li>
+<li>Update or publish the page. The widget sizes itself to the conversation as it grows.</li>
+</ol>
+<pre><code class="language-html">&lt;iframe src=&quot;https://chatmcd.mdeller.com/embed&quot;
+        style=&quot;width:100%;max-width:420px;height:560px;border:0;border-radius:14px&quot;
+        title=&quot;chatMCD — ask about Marc Deller&quot; loading=&quot;lazy&quot;&gt;&lt;/iframe&gt;
+&lt;script&gt;
+(function () {
+  var frame = document.currentScript.previousElementSibling;
+  window.addEventListener('message', function (e) {
+    // Only trust messages from the widget's own origin.
+    if (e.origin !== 'https://chatmcd.mdeller.com') return;
+    if (!e.data || e.data.type !== 'chatmcd:height') return;
+    if (e.source !== frame.contentWindow) return;
+    var h = parseInt(e.data.height, 10);
+    if (h &gt;= 240 &amp;&amp; h &lt;= 2000) frame.style.height = h + 'px';
+  });
+})();
+&lt;/script&gt;
+</code></pre>
+<p>Add <code>?theme=dark</code> or <code>?theme=auto</code> to the URL to change the theme, and adjust <code>max-width</code> to suit the column. It embeds only on <code>marcdeller.com</code>, <code>mdeller.com</code> and their subdomains: the site's content security policy tells browsers to refuse it anywhere else.</p>
 <p>Full instructions in <a href="docs/EMBED.md"><code>docs/EMBED.md</code></a>.</p>
 <h2>🧪 Tests</h2>
 <pre><code class="language-bash">.venv/bin/python3 -m pytest chatmcd/ eval/ scripts/   # 92 tests
