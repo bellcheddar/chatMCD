@@ -130,3 +130,34 @@ def test_every_preset_has_a_label_and_a_prompt():
     for p in PRESETS:
         assert p["id"] and p["label"] and p["prompt"], p
     assert len({p["id"] for p in PRESETS}) == len(PRESETS), "duplicate preset id"
+
+
+# ------------------------------------------------------------------ the scrubber
+# It exists to keep contact details out of the log. It used to take date ranges
+# with them: "2018-2024" is nine characters of digits and a dash, the pattern
+# matched, and the log and digest read "Incyte ([phone])".
+
+from chatmcd.app import scrub  # noqa: E402
+
+
+@pytest.mark.parametrize("text", [
+    "Incyte (2018-2024), Stanford (2015-2018)",
+    "Leeds 1991-1995 1995-1999",
+    "400+ structures, 60+ publications, 7+ patents",
+    "PDB 10PI at 1.54 Å",
+])
+def test_dates_and_numbers_survive(text):
+    assert scrub(text) == text
+
+
+@pytest.mark.parametrize("text", [
+    "call (302) 555-0142",
+    "ring +44 115 496 0123",
+    "phone 302-555-0142 please",
+])
+def test_phone_numbers_are_still_removed(text):
+    assert "[phone]" in scrub(text), scrub(text)
+
+
+def test_emails_are_still_removed():
+    assert scrub("write to someone@example.com") == "write to [email]"

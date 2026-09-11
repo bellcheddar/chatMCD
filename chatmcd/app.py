@@ -37,8 +37,25 @@ _EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
 _PHONE = re.compile(r"\+?\d[\d\s().-]{7,}\d")
 
 
+def _phone_or_not(m: re.Match) -> str:
+    """Only a run that really looks like a phone number is replaced.
+
+    The pattern alone matched "2018-2024", so every date range in a logged
+    answer became "[phone]": "Incyte ([phone]), Stanford ([phone])" in the
+    question log and in the daily digest built from it. A phone number carries
+    at least ten digits and is not made of four-digit years.
+    """
+    run = m.group(0)
+    groups = re.findall(r"\d+", run)
+    if sum(len(g) for g in groups) < 10:
+        return run
+    if all(len(g) == 4 and g[:2] in ("19", "20") for g in groups):
+        return run
+    return "[phone]"
+
+
 def scrub(text: str) -> str:
-    return _PHONE.sub("[phone]", _EMAIL.sub("[email]", text))
+    return _PHONE.sub(_phone_or_not, _EMAIL.sub("[email]", text))
 
 
 # Phrases that mean the bot declined. Used only to flag a row in the digest, so

@@ -30,6 +30,21 @@ def read(p):
     with open(p, encoding="utf-8") as f:
         return f.read()
 
+def _join_answer(lines):
+    """An answer's lines, joined the way they were written.
+
+    This used to be " ".join(line.strip() for non-blank lines), which flattened
+    every structured answer onto a single line: tables, bulleted lists, nested
+    lists and paragraph breaks all gone before retrieval or the model saw them.
+    The model then copied the flattening, and the quick-resume preset rendered as
+    "The headline numbers: | | | |---|---| | ...". Newlines, blank lines between
+    paragraphs and the indentation of nested list items are now kept, with runs
+    of blank lines collapsed to one.
+    """
+    text = "\n".join(lines).strip()
+    return re.sub(r"\n{3,}", "\n\n", text)
+
+
 def split_frontmatter(md):
     m = re.match(r"^---\n(.*?)\n---\n", md, re.S)
     if not m:
@@ -51,14 +66,16 @@ def parse_qa(path):
     for line in body.splitlines():
         if line.startswith("Q: "):
             if q and a:
-                pairs.append((q, " ".join(a).strip()))
+                pairs.append((q, _join_answer(a)))
             q, a = line[3:].strip(), []
         elif line.startswith("A: "):
             a = [line[3:].strip()]
-        elif line.strip() and a:
-            a.append(line.strip())
+        elif a:
+            # Blank lines and leading indentation are part of the answer's
+            # formatting; trailing blanks are trimmed by _join_answer.
+            a.append(line.rstrip())
     if q and a:
-        pairs.append((q, " ".join(a).strip()))
+        pairs.append((q, _join_answer(a)))
     bad = [p for p in pairs if len(p[1]) < 10]
     if bad:
         raise SystemExit(f"{path}: {len(bad)} empty answers")

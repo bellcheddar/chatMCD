@@ -623,6 +623,8 @@ body.is-app .shell {
   text-align: center;
   margin: 9px 0 0;
 }
+.hdr-role a { color: var(--acc); text-decoration: none; }
+.hdr-role a:hover { text-decoration: underline; text-underline-offset: 2px; }
 .foot-note a { color: var(--ink-2); text-decoration: none; }
 .foot-note a:hover { color: var(--acc); text-decoration: underline; }
 

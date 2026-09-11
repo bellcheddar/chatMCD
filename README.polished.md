@@ -2,7 +2,7 @@
 
 > **Ask a question about Marc C. Deller and get a straight answer, drawn from his own writing.**
 
-[![live](https://img.shields.io/badge/live-chatmcd.mdeller.com-00d084?logo=icloud&logoColor=white)](https://chatmcd.mdeller.com) ![python](https://img.shields.io/badge/python-3.12.3-3776AB?logo=python&logoColor=white) ![flask](https://img.shields.io/badge/flask-3.1.3-000000?logo=flask&logoColor=white) ![gunicorn](https://img.shields.io/badge/gunicorn-26.2.0-499848?logo=gunicorn&logoColor=white) ![nginx](https://img.shields.io/badge/nginx-1.24.0-009639?logo=nginx&logoColor=white) ![sqlite](https://img.shields.io/badge/sqlite-3.45.1-003B57?logo=sqlite&logoColor=white) ![gradio](https://img.shields.io/badge/gradio-5.49.1-F97316?logo=gradio&logoColor=white) ![model](https://img.shields.io/badge/model-Qwen3--8B-467FF7) ![hosting](https://img.shields.io/badge/inference-ZeroGPU-FFD21E?logo=huggingface&logoColor=black) ![embeddings](https://img.shields.io/badge/embeddings-all--MiniLM--L6--v2-9b51e0) ![pytest](https://img.shields.io/badge/pytest-83%20passing-0A9EDC?logo=pytest&logoColor=white) ![browser](https://img.shields.io/badge/browser%20checks-68%20passing-00897B) ![wordpress](https://img.shields.io/badge/plugin%20tests-48%20passing-21759B?logo=wordpress&logoColor=white) ![licence](https://img.shields.io/badge/licence-MIT-lightgrey) ![author](https://img.shields.io/badge/author-Marc%20C.%20Deller%2C%20D.Phil.-1C244B)
+[![live](https://img.shields.io/badge/live-chatmcd.mdeller.com-00d084?logo=icloud&logoColor=white)](https://chatmcd.mdeller.com) ![python](https://img.shields.io/badge/python-3.12.3-3776AB?logo=python&logoColor=white) ![flask](https://img.shields.io/badge/flask-3.1.3-000000?logo=flask&logoColor=white) ![gunicorn](https://img.shields.io/badge/gunicorn-26.2.0-499848?logo=gunicorn&logoColor=white) ![nginx](https://img.shields.io/badge/nginx-1.24.0-009639?logo=nginx&logoColor=white) ![sqlite](https://img.shields.io/badge/sqlite-3.45.1-003B57?logo=sqlite&logoColor=white) ![gradio](https://img.shields.io/badge/gradio-5.49.1-F97316?logo=gradio&logoColor=white) ![model](https://img.shields.io/badge/model-Qwen3--8B-467FF7) ![hosting](https://img.shields.io/badge/inference-ZeroGPU-FFD21E?logo=huggingface&logoColor=black) ![embeddings](https://img.shields.io/badge/embeddings-all--MiniLM--L6--v2-9b51e0) ![pytest](https://img.shields.io/badge/pytest-91%20passing-0A9EDC?logo=pytest&logoColor=white) ![browser](https://img.shields.io/badge/browser%20checks-73%20passing-00897B) ![wordpress](https://img.shields.io/badge/plugin%20tests-48%20passing-21759B?logo=wordpress&logoColor=white) ![licence](https://img.shields.io/badge/licence-MIT-lightgrey) ![author](https://img.shields.io/badge/author-Marc%20C.%20Deller%2C%20D.Phil.-1C244B)
 
 <table>
 <tr>
@@ -14,7 +14,7 @@
 
 ---
 
-![The chatMCD web app answering a question about leadership, with the answer rendered as a numbered list](docs/screenshots/app-light.png)
+![The chatMCD web app answering Marc's quick résumé preset: key positions as bullets, most recent first, with the headline numbers and links to his publications, structures, patents and full résumé](docs/screenshots/app-light.png)
 
 chatMCD is a chatbot that answers questions about Marc C. Deller, D.Phil., a structural biologist and drug discovery scientist. It talks *about* him in the third person, it answers from his own papers, patents, thesis and notes, and when it does not know something it says so instead of guessing.
 
@@ -196,10 +196,10 @@ Full instructions in [`docs/EMBED.md`](docs/EMBED.md).
 ## 🧪 Tests
 
 ```bash
-.venv/bin/python3 -m pytest chatmcd/ eval/ scripts/   # 78 tests
+.venv/bin/python3 -m pytest chatmcd/ eval/ scripts/   # 86 tests
 .venv-gradio/bin/python3 -m pytest space/            # 5 tests, needs gradio
 php wordpress/tests/test_plugin.php                  # 48 tests
-python3 scripts/browser_check.py                     # 68 checks in a real browser
+python3 scripts/browser_check.py                     # 73 checks in a real browser
 ```
 
 The browser checks drive a real Chrome over the DevTools protocol rather than taking a screenshot and hoping: they cover streaming, the markdown rendering, the copy and voting buttons, the light and dark themes, the widget, and a clean console.
@@ -230,7 +230,7 @@ Roadmap for chatMCD, newest first. Suggestions welcome.
 - [x] **Answers from the writing, not from the model's memory.** Relevant passages are retrieved for every question and the model answers from those. Measured at 45/50 on a fixed 50-question set, including 4/4 on questions it is supposed to refuse.
 - [x] **Load tested.** Twelve simultaneous conversations stay inside a ten second budget with no failures, and it queues rather than erroring above that.
 - [x] **Embeddable anywhere on Marc's sites.** A compact widget plus a WordPress plugin with a shortcode, a block and a settings screen.
-- [x] **Tested where it actually runs.** The published API contract, the failure handling, the scoring, the plugin, and 68 checks driving a real browser.
+- [x] **Tested where it actually runs.** The published API contract, the failure handling, the scoring, the plugin, and 73 checks driving a real browser.
 - [x] **Richer answers.** Every answer opens with plain prose, and longer ones then use tables, headings, callouts, bold terms and nested lists. The renderer gained real tables (scrolling in their own box so a wide one never widens the message), proper headings, callouts and rules, all styled from the existing tokens so they follow the light and dark themes without a second definition.
 - [x] **Fifteen suggested questions, in three rows.** A mix of the professional and the light-hearted, so a visitor learns what Marc has done or what he is like depending on which they tap.
 - [x] **Marc's own photo as the tab icon.** Cropped to the alpha bounding box so the head is centred, with a flattened Apple touch icon, because iOS ignores transparency and would otherwise composite it onto a black square.
@@ -245,6 +245,9 @@ Roadmap for chatMCD, newest first. Suggestions welcome.
 - [x] **The page follows a long answer to the end.** It used to re-measure "are we near the bottom?" on every word while a smooth scroll was still travelling there, so a fast answer outran the animation and the page stopped following half way down, leaving the copy and thumbs buttons out of sight. Following is now the visitor's decision: it stops only when they scroll up themselves. Confirmed live on the long answer that failed.
 - [x] **More links, and none of them guessed.** A verified list of marcdeller.com pages and mdeller.com apps in the instructions, with linking the first mention made an expectation rather than a suggestion, plus deterministic linking of app names on the page. Before these changes 3 of 15 answers carried a link, and all 15 links resolved.
 - [x] **A little more variety.** Temperature 0.45 to 0.6. A 10-question spot check across every category afterwards scored 8/10, missing one depth question on specific residues and one phrasing of what AlphaFraud does. Ten questions cannot pass the honesty gate by construction, since the gate asks for three honesty answers and a spread of ten includes one, so the full 50 remain the figure to quote.
+- [x] **Structured answers survive into the library.** The script that builds it joined every multi-line answer with spaces and dropped the blank lines, so tables, bulleted lists and paragraph breaks were flattened onto one line before retrieval or the model saw them. The model copied the flattening, and the quick résumé rendered as "The headline numbers: | | | |---|---| | ...". Line structure is now kept. The résumé answer is rewritten too: key positions as bullets, most recent first, the headline numbers, education, and links to the full PDF, publications, structures and patents.
+- [x] **Dates are no longer logged as phone numbers.** The scrubber that keeps contact details out of the question log matched "2018-2024" as a phone number, so the log and the daily digest read "Incyte ([phone])". Visitors always saw the right dates; the log now does too. A phone number now needs ten digits that are not four-digit years.
+- [x] **The banner and footer link out.** "D.Phil." in the banner is now a link to this repository, and "Answers from Marc's own papers" and "Served from Hugging Face" in the footer link to his publications and to the Space that does the answering.
 - [ ] **Feed the questions back in.** The daily digest surfaces what visitors actually asked; `scripts/digest.py` groups it by frequency. Open because it is a habit rather than a build step: read the long tail, and write the missing answers into the library.
 
 ## 📄 Licence

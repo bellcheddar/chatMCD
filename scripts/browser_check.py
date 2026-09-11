@@ -394,6 +394,20 @@ def main() -> int:
             "})()"))
         tab.shot(out / "app-actions-visible.png")
 
+        # --- banner and footer links ------------------------------------------
+        print("\nbanner and footer links")
+        check("the banner links to the chatMCD repository", tab.js(
+            "!!document.querySelector('.hdr-role a[href=\"https://github.com/bellcheddar/chatMCD\"]')"))
+        check("the banner no longer says D.Phil.", "D.Phil." not in (tab.js(
+            "document.querySelector('.hdr-role').textContent") or ""))
+        foot = tab.js("[...document.querySelectorAll('.foot-note a')].map(a => a.textContent.trim() + ' ' + a.href)") or []
+        check("'answers from Marc's own papers' is a link",
+              any("OWN PAPERS" in f and "marcdeller.com/publications" in f for f in foot), str(foot))
+        check("'served from Hugging Face' is a link",
+              any("HUGGING FACE" in f and "huggingface.co/spaces/Dellboy/chatmcd-api" in f for f in foot), str(foot))
+        check("every new link opens safely", tab.js(
+            "[...document.querySelectorAll('.hdr-role a, .foot-note a[target]')].every(a => a.rel.includes('noopener'))"))
+
         # --- the status light ------------------------------------------------
         # It reports whether the model is answering. The failure that matters is
         # a green dot on a broken model, so this checks it reached a REAL state
