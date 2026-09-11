@@ -295,6 +295,31 @@ def main() -> int:
               f"ul {rendered.count('<ul>')}/{rendered.count('</ul>')}")
         check("a bare list marker leaves no stray dash",
               "<p>-</p>" not in rendered and "<li></li>" not in rendered, rendered[:400])
+        # App names are linked deterministically, first mention only.
+        auto = tab.js("""(() => {
+          const d = document.createElement('div');
+          d.innerHTML = window.chatmcdRenderMarkdown(
+            'AlphaFraud watches the PDB, and AlphaFraud again. See ' +
+            '[BoltzMaker](https://boltzmaker.mdeller.com) and BoltzMaker. ' +
+            '`ChemSage` stays code. PANTSuit is not an app. Elora Therapeutics.');
+          window.chatmcdAutolink(d);
+          const hrefs = [...d.querySelectorAll('a')].map(a => a.href);
+          return {
+            alpha: hrefs.filter(h => h.includes('alphafraud')).length,
+            boltz: hrefs.filter(h => h.includes('boltzmaker')).length,
+            chem: hrefs.filter(h => h.includes('chemsage')).length,
+            pants: hrefs.filter(h => h.includes('pants')).length,
+            elora: hrefs.filter(h => h.includes('/elora')).length,
+            rel: [...d.querySelectorAll('a')].every(a => a.rel.includes('noopener')),
+          };
+        })()""") or {}
+        check("an app name is linked to its live app", auto.get("alpha") == 1, str(auto))
+        check("only the first mention is linked", auto.get("alpha") == 1, str(auto))
+        check("an app the model already linked is not linked twice", auto.get("boltz") == 1, str(auto))
+        check("names inside code are left alone", auto.get("chem") == 0, str(auto))
+        check("a name inside a longer word is not linked", auto.get("pants") == 0, str(auto))
+        check("Elora Therapeutics links to its page", auto.get("elora") == 1, str(auto))
+        check("every inserted link opens safely", auto.get("rel") is True, str(auto))
         check("`code` became <code>", "<code>code</code>" in rendered, rendered[:160])
         check("a <script> tag from the model is escaped",
               "<script" not in rendered.lower() and "&lt;script" in rendered.lower(),
@@ -435,6 +460,47 @@ def main() -> int:
             "!document.querySelector('#menu ul').hidden"))
 
         # --- keyboard ------------------------------------------------------
+        # --- a phone ---------------------------------------------------------
+        # Checked at a real phone size because the bug was only visible there:
+        # fifteen chips wrapped onto nine rows and the header links onto three,
+        # squeezing the transcript to a sliver so the answer a visitor had just
+        # asked for was the one thing they could not see. Emulated rather than
+        # windowed, because headless Chrome clamps a window to 500 px wide.
+        print("\nphone (390 x 844)")
+        tab.send("Emulation.setDeviceMetricsOverride", width=390, height=844,
+                 deviceScaleFactor=3, mobile=True)
+        tab.goto(args.base + "/")
+        time.sleep(2.0)
+        rows = lambda sel: tab.js(
+            f"new Set([...document.querySelectorAll('{sel}')]"
+            ".map(e => Math.round(e.getBoundingClientRect().top))).size")
+        check("the preset chips sit on one row", rows("#chips .chip") == 1,
+              f"{rows('#chips .chip')} rows")
+        check("the header links sit on one row", rows(".hdr-links a") == 1,
+              f"{rows('.hdr-links a')} rows")
+        check("the chip row scrolls sideways instead of wrapping", tab.js(
+            "(() => {const c=document.getElementById('chips');"
+            " return c.scrollWidth > c.clientWidth + 20;})()"))
+        share = tab.js("(() => {const t=document.getElementById('transcript');"
+                       " return t.getBoundingClientRect().height / window.innerHeight;})()")
+        check("the conversation gets most of the screen",
+              isinstance(share, (int, float)) and share >= 0.5,
+              f"transcript is {share:.0%} of the viewport" if isinstance(share, (int, float))
+              else str(share))
+        check("nothing overflows the page sideways", tab.js(
+            "document.documentElement.scrollWidth <= window.innerWidth + 1"))
+        # Scroll-snapping aligns items to the snapport, which ignores padding, so
+        # the first chip once sat flush against the screen edge.
+        lefts = tab.js("[document.querySelector('#chips .chip'), document.querySelector('.hdr-links a')]"
+                       ".map(e => Math.round(e.getBoundingClientRect().left))")
+        check("the first chip and link line up with the page, not the screen edge",
+              isinstance(lefts, list) and all(isinstance(x, (int, float)) and x >= 10 for x in lefts),
+              f"left edges {lefts}")
+        tab.shot(out / "app-phone.png")
+        tab.send("Emulation.clearDeviceMetricsOverride")
+        tab.goto(args.base + "/")
+        time.sleep(1.0)
+
         print("\nkeyboard")
         tab.goto(args.base + "/")
         check("the composer takes focus on load",

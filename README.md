@@ -2,7 +2,7 @@
 
 > **Ask a question about Marc C. Deller and get a straight answer, drawn from his own writing.**
 
-[![live](https://img.shields.io/badge/live-chatmcd.mdeller.com-00d084?logo=icloud&logoColor=white)](https://chatmcd.mdeller.com) ![python](https://img.shields.io/badge/python-3.12.3-3776AB?logo=python&logoColor=white) ![flask](https://img.shields.io/badge/flask-3.1.3-000000?logo=flask&logoColor=white) ![gunicorn](https://img.shields.io/badge/gunicorn-26.2.0-499848?logo=gunicorn&logoColor=white) ![nginx](https://img.shields.io/badge/nginx-1.24.0-009639?logo=nginx&logoColor=white) ![sqlite](https://img.shields.io/badge/sqlite-3.45.1-003B57?logo=sqlite&logoColor=white) ![gradio](https://img.shields.io/badge/gradio-5.49.1-F97316?logo=gradio&logoColor=white) ![model](https://img.shields.io/badge/model-Qwen3--8B-467FF7) ![hosting](https://img.shields.io/badge/inference-ZeroGPU-FFD21E?logo=huggingface&logoColor=black) ![embeddings](https://img.shields.io/badge/embeddings-all--MiniLM--L6--v2-9b51e0) ![pytest](https://img.shields.io/badge/pytest-83%20passing-0A9EDC?logo=pytest&logoColor=white) ![browser](https://img.shields.io/badge/browser%20checks-55%20passing-00897B) ![wordpress](https://img.shields.io/badge/plugin%20tests-48%20passing-21759B?logo=wordpress&logoColor=white) ![licence](https://img.shields.io/badge/licence-MIT-lightgrey) ![author](https://img.shields.io/badge/author-Marc%20C.%20Deller%2C%20D.Phil.-1C244B)
+[![live](https://img.shields.io/badge/live-chatmcd.mdeller.com-00d084?logo=icloud&logoColor=white)](https://chatmcd.mdeller.com) ![python](https://img.shields.io/badge/python-3.12.3-3776AB?logo=python&logoColor=white) ![flask](https://img.shields.io/badge/flask-3.1.3-000000?logo=flask&logoColor=white) ![gunicorn](https://img.shields.io/badge/gunicorn-26.2.0-499848?logo=gunicorn&logoColor=white) ![nginx](https://img.shields.io/badge/nginx-1.24.0-009639?logo=nginx&logoColor=white) ![sqlite](https://img.shields.io/badge/sqlite-3.45.1-003B57?logo=sqlite&logoColor=white) ![gradio](https://img.shields.io/badge/gradio-5.49.1-F97316?logo=gradio&logoColor=white) ![model](https://img.shields.io/badge/model-Qwen3--8B-467FF7) ![hosting](https://img.shields.io/badge/inference-ZeroGPU-FFD21E?logo=huggingface&logoColor=black) ![embeddings](https://img.shields.io/badge/embeddings-all--MiniLM--L6--v2-9b51e0) ![pytest](https://img.shields.io/badge/pytest-83%20passing-0A9EDC?logo=pytest&logoColor=white) ![browser](https://img.shields.io/badge/browser%20checks-68%20passing-00897B) ![wordpress](https://img.shields.io/badge/plugin%20tests-48%20passing-21759B?logo=wordpress&logoColor=white) ![licence](https://img.shields.io/badge/licence-MIT-lightgrey) ![author](https://img.shields.io/badge/author-Marc%20C.%20Deller%2C%20D.Phil.-1C244B)
 
 <table>
 <tr>
@@ -15,8 +15,6 @@
 ---
 
 ![The chatMCD web app answering a question about leadership, with the answer rendered as a numbered list](docs/screenshots/app-light.png)
-
-<sub>Captured before two fixes landed: the status dot beside the name is now a live health light, and the patent count in that answer came from a line of the source material that contradicted ten others. Both are corrected; the screenshot is refreshed on the next run with GPU credits available.</sub>
 
 chatMCD is a chatbot that answers questions about Marc C. Deller, D.Phil., a structural biologist and drug discovery scientist. It talks *about* him in the third person, it answers from his own papers, patents, thesis and notes, and when it does not know something it says so instead of guessing.
 
@@ -31,6 +29,8 @@ Three pieces, and the middle one is the important one.
 3. **A language model writes the answer** using only those passages, and streams it back a word at a time.
 
 Step 2 is what stops it making things up. The model is not asked "what do you know about Marc Deller"; it is handed the relevant paragraphs and asked to answer from them. And when the best match is a poor one, it is told so explicitly and asked to decline rather than answer from whatever happened to come back: that is the difference between "I do not know" and a confident invention.
+
+**Links to the real pages.** Answers link to Marc's résumé, publications, structures, patents and projects on marcdeller.com, and to his live apps on mdeller.com, from a list of URLs that were each checked to resolve, so the model never has to guess one. App names are also linked on the page itself, first mention only, because asked "What does AlphaFraud do?" the model once described AlphaFraud accurately and did not link to it.
 
 **A daily email** reports what visitors asked, what they were told, roughly where they were, on what device and how long it took. It is how the writing gets better: the questions it could not answer are the list of what to write next.
 
@@ -76,6 +76,12 @@ Under load (each conversation a different question, so nothing is cached anywher
 
 Nothing ever fails: it queues. The queue is the shared GPU, not the web server, so twelve people at once is comfortable and twenty simply wait longer.
 
+## 📱 On a phone
+
+<img src="docs/screenshots/app-phone.png" width="300" alt="chatMCD on an iPhone-sized screen: the header links and the suggested questions each sit on one row that scrolls sideways, leaving most of the screen for the conversation">
+
+The suggested questions and the header links each take one row that scrolls sideways, so the conversation keeps most of the screen. Wrapped, they had filled it: nine rows of questions and three of links left the answer a visitor had just asked for 26% of the height. It now gets 64%.
+
 ## 🟢 Is it live?
 
 The dot beside Marc's name in the header answers that, and it is checked rather
@@ -97,6 +103,8 @@ visitor to discover it by asking. Hugging Face publishes no quota endpoint and
 an exhausted allowance looks identical to any other failure over the wire, so it
 is inferred from the one signature it has, a completion of zero tokens, and held
 until a real answer proves otherwise.
+
+**How many answers a day.** On a Hugging Face PRO allowance, one day's GPU time covered about **330 answers** before it ran out, measured from the question log rather than estimated. Answers have since grown longer and link out more, so plan on something like **200 to 350 a day**, which at two to four questions a visitor is roughly 60 to 150 visitors.
 
 The check is deliberately cheap. It answers from what the app last observed and
 falls back to a cached handshake, so an open tab polling every 45 seconds never
@@ -147,7 +155,7 @@ Everything is set in `.env`. The ones that matter:
 | `RATE_LIMIT` | Requests allowed per visitor, for example `"20 per minute"` |
 | `LOG_QUESTIONS` | Whether to record what gets asked. Stores the question, the answer, the visitor's address, browser and how long it took. Email addresses and phone numbers are stripped from both the question and the answer before anything is written |
 | `MAX_NEW_TOKENS` | How long an answer may run. 1200: at 512 the longer structured answers were cut off mid-sentence |
-| `TEMPERATURE` | How much the model varies. 0.45: lower keeps it closer to the retrieved text |
+| `TEMPERATURE` | How much the model varies. 0.6: enough that a repeated question does not read word for word the same, while staying close to the retrieved text |
 | `MOCK_SPACE` | `1` serves canned answers instead of calling the model |
 | `DIGEST_TO` | Where the daily usage digest is emailed |
 | `MAIL_PROVIDER` | `resend` (default) or `mailgun`. Not SMTP: every outbound SMTP port is blocked on this droplet |
@@ -191,7 +199,7 @@ Full instructions in [`docs/EMBED.md`](docs/EMBED.md).
 .venv/bin/python3 -m pytest chatmcd/ eval/ scripts/   # 78 tests
 .venv-gradio/bin/python3 -m pytest space/            # 5 tests, needs gradio
 php wordpress/tests/test_plugin.php                  # 48 tests
-python3 scripts/browser_check.py                     # 55 checks in a real browser
+python3 scripts/browser_check.py                     # 68 checks in a real browser
 ```
 
 The browser checks drive a real Chrome over the DevTools protocol rather than taking a screenshot and hoping: they cover streaming, the markdown rendering, the copy and voting buttons, the light and dark themes, the widget, and a clean console.
@@ -222,7 +230,7 @@ Roadmap for chatMCD, newest first. Suggestions welcome.
 - [x] **Answers from the writing, not from the model's memory.** Relevant passages are retrieved for every question and the model answers from those. Measured at 45/50 on a fixed 50-question set, including 4/4 on questions it is supposed to refuse.
 - [x] **Load tested.** Twelve simultaneous conversations stay inside a ten second budget with no failures, and it queues rather than erroring above that.
 - [x] **Embeddable anywhere on Marc's sites.** A compact widget plus a WordPress plugin with a shortcode, a block and a settings screen.
-- [x] **Tested where it actually runs.** The published API contract, the failure handling, the scoring, the plugin, and 55 checks driving a real browser.
+- [x] **Tested where it actually runs.** The published API contract, the failure handling, the scoring, the plugin, and 68 checks driving a real browser.
 - [x] **Richer answers.** Every answer opens with plain prose, and longer ones then use tables, headings, callouts, bold terms and nested lists. The renderer gained real tables (scrolling in their own box so a wide one never widens the message), proper headings, callouts and rules, all styled from the existing tokens so they follow the light and dark themes without a second definition.
 - [x] **Fifteen suggested questions, in three rows.** A mix of the professional and the light-hearted, so a visitor learns what Marc has done or what he is like depending on which they tap.
 - [x] **Marc's own photo as the tab icon.** Cropped to the alpha bounding box so the head is centred, with a flattened Apple touch icon, because iOS ignores transparency and would otherwise composite it onto a black square.
@@ -233,6 +241,10 @@ Roadmap for chatMCD, newest first. Suggestions welcome.
 - [x] **Corrected a confident, wrong answer.** It credited Marc's BSc to the University of Nottingham. He grew up there, but the degree is Leeds. The cause was a shorthand written as a chain of institutions ("Nottingham to Leeds to Oxford to Yale...") in two files, which reads as a list of universities. Worth recording that lowering the sampling temperature made it *worse*, four times in five rather than one in six: the error was the model's most likely output, not noise, so a more deterministic model produced it more often. The fix was the source text and the retrieval, not the sampling.
 - [x] **A live status light, including the GPU allowance.** The dot beside Marc's name is green when the model is answering, amber when it is queued or waking, and red when it is not responding, with the reason in its tooltip and, when it cannot answer at all, a plain notice above the composer so a visitor is told before they type. Running out of ZeroGPU credits is treated as its own state: Hugging Face publishes no quota endpoint and an exhausted allowance looks identical to any other failure over the wire, so it is inferred from the one signature it has (a completion of zero tokens), kept until a real generation succeeds, and remembered across restarts. A handshake alone never counts as healthy, because a Space with no credits answers the handshake perfectly and then returns nothing to every question. `/api/health` answers from what the client last observed and falls back to a cached handshake, so an open tab polling every 45 seconds never touches a GPU. It also updates the instant a conversation succeeds or fails, because by then the visitor has better evidence than any poll. It reported a real outage correctly on its first live run.
 - [x] **Everything ordered newest first.** Jobs, education, publications, patents and structures now read most recent first, so a visitor sees what Marc is doing now rather than what he did in 1995. Both the instruction and the underlying answers were changed: telling the model to reverse a list it was handed in chronological order is not reliable on its own.
+- [x] **Readable on a phone.** The fifteen suggested questions wrapped onto nine rows on an iPhone, and the header links onto three, squeezing the conversation to **26%** of the screen: the answer a visitor had just asked for was the one thing they could not see. Both are now a single row that scrolls sideways and the conversation gets **64%**. A check at a real phone size measures it, and was confirmed failing against the old layout first.
+- [x] **The page follows a long answer to the end.** It used to re-measure "are we near the bottom?" on every word while a smooth scroll was still travelling there, so a fast answer outran the animation and the page stopped following half way down, leaving the copy and thumbs buttons out of sight. Following is now the visitor's decision: it stops only when they scroll up themselves. Confirmed live on the long answer that failed.
+- [x] **More links, and none of them guessed.** A verified list of marcdeller.com pages and mdeller.com apps in the instructions, with linking the first mention made an expectation rather than a suggestion, plus deterministic linking of app names on the page. Before these changes 3 of 15 answers carried a link, and all 15 links resolved.
+- [x] **A little more variety.** Temperature 0.45 to 0.6. A 10-question spot check across every category afterwards scored 8/10, missing one depth question on specific residues and one phrasing of what AlphaFraud does. Ten questions cannot pass the honesty gate by construction, since the gate asks for three honesty answers and a spread of ten includes one, so the full 50 remain the figure to quote.
 - [ ] **Feed the questions back in.** The daily digest surfaces what visitors actually asked; `scripts/digest.py` groups it by frequency. Open because it is a habit rather than a build step: read the long tail, and write the missing answers into the library.
 
 ## 📄 Licence

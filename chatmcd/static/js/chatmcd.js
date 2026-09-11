@@ -241,20 +241,97 @@
      pure string-to-string function; exposing it grants a caller nothing. */
   window.chatmcdRenderMarkdown = md;
 
+  /* ---------------------------------------------------------- app links */
+
+  /* Link Marc's apps, and Elora, by name: the first mention in each answer.
+
+     The system prompt carries a verified list of these URLs and asks for links,
+     and on its own that was measured not to be enough: asked "What does
+     AlphaFraud do?", the model described AlphaFraud accurately and did not link
+     to it. These names are distinctive, their URLs are fixed, and a missed link
+     costs the visitor the one thing they most likely wanted next, so this is
+     done deterministically rather than hoped for.
+
+     Only exact names, whole words, first mention, never inside an existing
+     link or code, and never a second link to a URL the answer already has. */
+  const AUTOLINKS = [
+    ['AlphaFraud', 'https://alphafraud.mdeller.com'],
+    ['BoltzMaker', 'https://boltzmaker.mdeller.com'],
+    ['CODSWALLOP', 'https://codswallop.mdeller.com'],
+    ['GOBSMACKED', 'https://gobsmacked.mdeller.com'],
+    ['ALPHABETTI', 'https://alphabetti.mdeller.com'],
+    ['ButtFold', 'https://buttfold.mdeller.com'],
+    ['TopPDBLX', 'https://toppdblx.mdeller.com'],
+    ['FlexAppeal', 'https://flexappeal.mdeller.com'],
+    ['ChatPDB', 'https://chatpdb.mdeller.com'],
+    ['chatPDB', 'https://chatpdb.mdeller.com'],
+    ['ChemSage', 'https://chemsage.mdeller.com'],
+    ['PANTS', 'https://pants.mdeller.com'],
+    ['MicroPlastics Blaster', 'https://mdeller.com/game/microplastic_blaster_115.html'],
+    ['Elora Therapeutics', 'https://marcdeller.com/elora/'],
+  ];
+  const bare = (u) => u.replace(/\/$/, '');
+  const reEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  function autolink(root) {
+    const linked = new Set([...root.querySelectorAll('a[href]')].map((a) => bare(a.href)));
+    for (const [name, href] of AUTOLINKS) {
+      if (linked.has(bare(href))) continue;
+      const re = new RegExp(`(^|[^\\w-])(${reEscape(name)})(?![\\w-])`);
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode: (n) => (n.parentElement && n.parentElement.closest('a, code, pre')
+          ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+      });
+      let node;
+      while ((node = walker.nextNode())) {
+        const m = node.nodeValue.match(re);
+        if (!m) continue;
+        const hit = node.splitText(m.index + m[1].length);
+        hit.splitText(m[2].length);
+        const a = document.createElement('a');
+        a.href = href;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = m[2];
+        hit.replaceWith(a);
+        linked.add(bare(href));
+        break;
+      }
+    }
+  }
+  window.chatmcdAutolink = autolink;   // for scripts/browser_check.py
+
   /* -------------------------------------------------------------- transcript */
 
   const atBottom = () =>
     transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight < 80;
 
+  /* FOLLOW THE ANSWER unless the visitor has scrolled up to read something.
+
+     This used to re-measure "are we near the bottom?" on every token while a
+     SMOOTH scroll was still travelling there. A fast answer outruns a smooth
+     scroll: the content grows faster than the animation catches up, the gap
+     passes 80px, and the page stops following half way down a long answer. The
+     copy and thumbs buttons then land below the fold again, which is exactly
+     what the README screenshot of a long answer showed.
+
+     So following is now a decision the VISITOR makes, not a measurement: it
+     switches off only when they scroll themselves (wheel, touch, keys) and away
+     from the bottom, and back on when they return to it or send a question.
+     Programmatic scrolls never touch it, and they are instant, because an
+     animation cannot keep pace with a stream. */
+  let follow = true;
+
   function scroll(force) {
-    if (force || atBottom()) {
-      transcript.scrollTo({
-        top: transcript.scrollHeight,
-        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-          ? 'auto' : 'smooth',
-      });
-    }
+    if (force) follow = true;
+    if (!follow) return;
+    transcript.scrollTop = transcript.scrollHeight;
   }
+
+  const readIntent = () => requestAnimationFrame(() => { follow = atBottom(); });
+  ['wheel', 'touchmove'].forEach((ev) =>
+    transcript.addEventListener(ev, readIntent, { passive: true }));
+  transcript.addEventListener('keydown', readIntent);
 
   function addMessage(role, text) {
     if (hint && hint.parentNode) hint.remove();
@@ -334,14 +411,12 @@
 
     bar.append(copy, vote(1, ICON_UP, 'Helpful'), vote(-1, ICON_DOWN, 'Not helpful'));
 
-    // Measured BEFORE the bar is appended, because appending it is what changes
-    // scrollHeight. The bar arrives after the last token, so the scrolling done
-    // during streaming has already finished -- and without this the copy and
-    // thumbs sit just below the fold on every answer that fills the panel:
-    // present, focusable, and invisible.
-    const stick = atBottom();
+    // The bar arrives after the last token, so it needs one more scroll or the
+    // copy and thumbs sit just below the fold on every answer that fills the
+    // panel. Whether to scroll is the visitor's choice (see `follow`), not a
+    // fresh measurement: measuring here was what lost it on long answers.
     el.appendChild(bar);
-    if (stick) scroll(true);
+    scroll(false);
   }
 
   /* --------------------------------------------------------- status light */
@@ -506,6 +581,7 @@
             if (!target) { typing.remove(); target = addMessage('assistant', ''); }
             answer += payload.t;
             target.bodyEl.innerHTML = md(answer);
+            autolink(target.bodyEl);
             scroll(false);
           } else if (event === 'error') {
             throw new Error(payload.detail || 'The model could not be reached.');

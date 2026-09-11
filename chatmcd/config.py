@@ -40,7 +40,7 @@ class Config:
     KEEPWARM_ENABLED = _bool("KEEPWARM_ENABLED", True)
 
     # ---- Generation defaults ---------------------------------------------
-    TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.7"))
+    TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.6"))
     TOP_P = float(os.environ.get("TOP_P", "0.9"))
     REPETITION_PENALTY = float(os.environ.get("REPETITION_PENALTY", "1.05"))
     # 512 truncated the richer answers mid-sentence: a "walk me through his

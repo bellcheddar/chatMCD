@@ -692,11 +692,36 @@ body.is-embed .hint { font-size: 11.5px; padding: 8px 12px; }
 
 @media (max-width: 620px) {
   .hdr { flex-wrap: wrap; padding: 11px 14px; }
-  .hdr-links { width: 100%; justify-content: flex-start; order: 3; }
   .hdr-role { white-space: normal; }
   .transcript { padding: 16px 14px 8px; }
   .msg { max-width: 92%; }
   .composer { padding: 10px 14px 12px; }
+
+  /* ONE ROW THAT SCROLLS SIDEWAYS, not fifteen chips wrapped onto nine rows.
+     Wrapped, the presets filled most of an iPhone screen and squeezed the
+     transcript to a sliver: the answer a visitor had just asked for was the
+     one thing they could not see. The same goes for the header links, which
+     wrapped to three rows of their own. Both now take a single line and scroll
+     horizontally, with the edge padding carried into the scroll area so the
+     first and last item line up with the page and are not clipped. */
+  .chips, .hdr-links {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    margin-left: -14px; margin-right: -14px;
+    padding-left: 14px; padding-right: 14px;
+    /* Snapping aligns an item to the edge of the SNAPPORT, which ignores the
+       padding above unless scroll padding says otherwise: without this the
+       first chip snapped flush against the screen edge on an iPhone. */
+    scroll-padding-inline: 14px;
+  }
+  .chips::-webkit-scrollbar, .hdr-links::-webkit-scrollbar { display: none; }
+  .chips { padding-bottom: 2px; }
+  .chip, .hdr-links a { flex: none; white-space: nowrap; scroll-snap-align: start; }
+  .hdr-links { width: calc(100% + 28px); justify-content: flex-start; order: 3; }
 }
 
 /* 320 px is the floor the widget must survive in an Elementor column. */
