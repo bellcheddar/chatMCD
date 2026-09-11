@@ -382,7 +382,7 @@ class MockClient:
                "first attempt, it would be called Search.*",
         "publication": "60+ publications and 400+ PDB depositions. His most-cited is the "
                        "2013 *Science* structure of a soluble cleaved HIV-1 envelope "
-                       "trimer (~979 citations). Most recent: the povorcitinib JAK1 "
+                       "trimer (~979 citations). Most recent: the isoform-selective JAK1 inhibitor "
                        "discovery paper in *J. Med. Chem.* 2026, with his co-crystal "
                        "structures deposited as `10PI` and `10PJ` at 1.54 and 1.59 Å.",
         "leadership": "Marc leads by what he calls the **6 C's**: Curiosity, Courage, "

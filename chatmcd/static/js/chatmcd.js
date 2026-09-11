@@ -61,7 +61,10 @@
       .replace(/`([^`]+)`/g, (_, c) => `<code>${c}</code>`)
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/(^|[\s(])\*([^*\n]+)\*/g, '$1<em>$2</em>')
-      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      // A URL may carry one level of balanced brackets: Elsevier DOIs do, e.g.
+      // 10.1016/S0969-2126(00)00176-3, and stopping at the first ")" cut that
+      // link off half way through the identifier.
+      .replace(/\[([^\]]+)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+)\)/g,
         '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
       // Bare URLs and emails the model writes out in prose.
       .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g,

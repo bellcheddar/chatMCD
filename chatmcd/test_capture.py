@@ -145,6 +145,8 @@ from chatmcd.app import scrub  # noqa: E402
     "Leeds 1991-1995 1995-1999",
     "400+ structures, 60+ publications, 7+ patents",
     "PDB 10PI at 1.54 Å",
+    "ORCID 0000-0001-8070-6502",
+    "[ORCID](https://orcid.org/0000-0001-8070-6502)",
 ])
 def test_dates_and_numbers_survive(text):
     assert scrub(text) == text

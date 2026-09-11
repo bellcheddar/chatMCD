@@ -23,11 +23,12 @@ import time
 import uuid
 from pathlib import Path
 
-from flask import (Flask, Response, abort, g, jsonify, render_template, request,
+from flask import (Flask, Response, abort, g, jsonify, redirect, render_template, request,
                    send_from_directory, stream_with_context)
 
 from .config import EMBED_PRESETS, GREETING, LINKS, PRESETS, Config
 from .hf_client import KeepWarm, MockClient, SpaceClient
+from .pdb import load as load_pdb_entries, rcsb_search_url
 
 log = logging.getLogger("chatmcd")
 
@@ -46,6 +47,10 @@ def _phone_or_not(m: re.Match) -> str:
     at least ten digits and is not made of four-digit years.
     """
     run = m.group(0)
+    # An ORCID iD is sixteen digits in four hyphenated groups, so it passed the
+    # ten-digit test: the logged publications answer read "orcid.org/[phone]".
+    if re.fullmatch(r"\d{4}-\d{4}-\d{4}-\d{3}[\dX]", run.strip()):
+        return run
     groups = re.findall(r"\d+", run)
     if sum(len(g) for g in groups) < 10:
         return run
@@ -311,6 +316,13 @@ def _register_routes(app: Flask) -> None:
     @app.get("/api/presets")
     def presets():
         return jsonify({"presets": PRESETS, "greeting": GREETING})
+
+    @app.get("/pdb")
+    def pdb_entries():
+        # Every PDB entry carrying Marc's name, at RCSB, by ID. A short route
+        # because the real URL is ~1,500 characters and answers link to it; see
+        # chatmcd/pdb.py for why this is an ID list and not an author search.
+        return redirect(rcsb_search_url(load_pdb_entries()["ids"]), code=302)
 
     @app.get("/api/health")
     def health():

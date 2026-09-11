@@ -47,7 +47,10 @@ class Config:
     # career" answer with a section per employer runs well past it. The
     # slowest measured answer took 14s at 512 tokens, so 1200 is about 35s,
     # comfortably inside the Space's GPU window.
-    MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "1200"))
+    # Raised again to 1800 for the publications-and-structures answer, which
+    # carries two dozen links and measured at about 1,300 tokens: links are
+    # cheap to read and expensive to generate.
+    MAX_NEW_TOKENS = int(os.environ.get("MAX_NEW_TOKENS", "1800"))
     MAX_HISTORY_TURNS = int(os.environ.get("MAX_HISTORY_TURNS", "8"))
     MAX_MESSAGE_CHARS = int(os.environ.get("MAX_MESSAGE_CHARS", "2000"))
 

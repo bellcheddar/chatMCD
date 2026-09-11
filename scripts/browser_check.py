@@ -320,6 +320,9 @@ def main() -> int:
         check("a name inside a longer word is not linked", auto.get("pants") == 0, str(auto))
         check("Elora Therapeutics links to its page", auto.get("elora") == 1, str(auto))
         check("every inserted link opens safely", auto.get("rel") is True, str(auto))
+        doi = tab.js("window.chatmcdRenderMarkdown('See [the paper](https://doi.org/10.1016/S0969-2126(00)00176-3) today.')") or ""
+        check("a link whose URL contains brackets survives whole",
+              'href="https://doi.org/10.1016/S0969-2126(00)00176-3"' in doi and ">the paper</a> today." in doi, doi)
         check("`code` became <code>", "<code>code</code>" in rendered, rendered[:160])
         check("a <script> tag from the model is escaped",
               "<script" not in rendered.lower() and "&lt;script" in rendered.lower(),
